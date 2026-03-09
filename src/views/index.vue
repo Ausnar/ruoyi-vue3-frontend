@@ -33,10 +33,6 @@
           <div class="stat-content">
             <div class="stat-label">灭火器总数</div>
             <div class="stat-value">{{ stats.extinguisherTotal }}</div>
-            <!-- <div class="stat-trend" :class="stats.extinguisherTrend > 0 ? 'trend-up' : 'trend-down'">
-              <i :class="stats.extinguisherTrend > 0 ? 'el-icon-top' : 'el-icon-bottom'"></i>
-              {{ Math.abs(stats.extinguisherTrend) }}%
-            </div> -->
           </div>
         </div>
       </el-col>
@@ -203,7 +199,6 @@ export default {
       currentTime: '',
       stats: {
         extinguisherTotal: 0,
-        extinguisherTrend: 0,
         sensorTotal: 0,
         sensorOnline: 0,
         alarmPending: 0,
@@ -216,7 +211,7 @@ export default {
       markerLayer: null,
       infoWindow: null,
       isMapFullscreen: false,
-      // 示例设备位置数据（替换为后端接口数据）
+      // 设备数据
       firePoints: [],
       extinguishers: [],
       sensors: [],
@@ -300,7 +295,6 @@ export default {
         this.extinguishers = response.rows || []
         this.stats.extinguisherTotal = response.total || 0
         this.updateProductLocations()
-        console.log(this.extinguishers)
       }).catch(error => {
         console.error('获取灭火器数据失败：', error)
         this.stats.extinguisherTotal = 0
@@ -313,7 +307,6 @@ export default {
         // 计算在线传感器数量（状态为0表示正常）
         this.stats.sensorOnline = this.sensors.filter(sensor => sensor.status === 0).length
         this.updateProductLocations()
-        console.log(this.sensors)
       }).catch(error => {
         console.error('获取传感器数据失败：', error)
         this.stats.sensorTotal = 0
@@ -324,7 +317,6 @@ export default {
       listPoint({}).then(response => {
         this.firePoints = response.rows || []
         this.updateProductLocations()
-        console.log(this.firePoints)
       }).catch(error => {
         console.error('获取消防点数据失败：', error)
       })
@@ -337,40 +329,38 @@ export default {
     },
 
     updateProductLocations() {
-      if (!this.firePoints.length || !this.extinguishers.length || !this.sensors.length) {
+      // 只要有消防点数据就开始处理，灭火器和传感器可能还没加载完
+      if (!this.firePoints.length) {
         return
       }
 
       // 生成地图标记数据，使用消防点的坐标
       const newProductLocations = this.firePoints.map(point => {
-        // 查找与消防点关联的灭火器
+        // 查找与消防点关联的灭火器 (类型转换确保比较正确)
         const pointExtinguishers = this.extinguishers.filter(
-          ext => ext.firePointId === point.firePointId
+          ext => Number(ext.firePointId) === Number(point.firePointId)
         )
 
-        console.log(pointExtinguishers)
-        
         // 查找与消防点关联的传感器（通过灭火器间接关联）
         const pointSensors = []
         pointExtinguishers.forEach(ext => {
           // 通过灭火器的 sensorId 或 sensorCode 查找关联的传感器
           const relatedSensors = this.sensors.filter(
-            sensor => sensor.sensorId === ext.sensorId || sensor.sensorCode === ext.sensorCode
+            sensor => Number(sensor.sensorId) === Number(ext.sensorId) || sensor.sensorCode === ext.sensorCode
           )
           pointSensors.push(...relatedSensors)
         })
 
         // 去重
         const uniqueSensors = [...new Map(pointSensors.map(item => [item.sensorId, item])).values()]
-        console.log(uniqueSensors)
 
         // 确定消防点状态（根据关联设备的状态）
         let status = 'normal'
-        if (pointExtinguishers.some(ext => ext.status === 2)) {
+        if (pointExtinguishers.some(ext => ext.status === '2')) {
           status = 'expired' // 过期
-        } else if (uniqueSensors.some(sensor => sensor.status === 1)) {
+        } else if (uniqueSensors.some(sensor => sensor.status === '1')) {
           status = 'warning' // 预警
-        } else if (uniqueSensors.some(sensor => sensor.status === 2)) {
+        } else if (uniqueSensors.some(sensor => sensor.status === '2')) {
           status = 'lowbat' // 低电量
         }
 
@@ -415,6 +405,7 @@ export default {
             styleId: this._getStyleIdByStatus(loc.status),
             position: new TMap.LatLng(loc.lat, loc.lng),
             properties: {
+              id: loc.id,
               title: loc.name,
               info: loc.info || '',
               status: loc.status
@@ -470,73 +461,78 @@ export default {
       // 点击标记显示信息
       this.markerLayer.on('click', (evt) => {
         const props = evt.geometry.properties
-        
-        // 查找与消防点关联的灭火器
+
+        // 查找与消防点关联的灭火器 (类型转换确保比较正确)
         const pointExtinguishers = this.extinguishers.filter(
-          ext => ext.firePointId === props.id
+          ext => Number(ext.firePointId) === Number(props.id)
         )
-        
+
         // 查找与消防点关联的传感器（通过灭火器间接关联）
         const pointSensors = []
         pointExtinguishers.forEach(ext => {
           // 通过灭火器的 sensorId 或 sensorCode 查找关联的传感器
           const relatedSensors = this.sensors.filter(
-            sensor => sensor.sensorId === ext.sensorId || sensor.sensorCode === ext.sensorCode
+            sensor => Number(sensor.sensorId) === Number(ext.sensorId) || sensor.sensorCode === ext.sensorCode
           )
           pointSensors.push(...relatedSensors)
         })
         // 去重
         const uniqueSensors = [...new Map(pointSensors.map(item => [item.sensorId, item])).values()]
 
-        // 构建信息窗口内容
+        // 查找消防点详情获取部门信息
+        const firePoint = this.firePoints.find(fp => Number(fp.firePointId) === Number(props.id))
+
+        // 统计灭火器各状态数量
+        const extNormal = pointExtinguishers.filter(ext => ext.status === '0').length
+        const extWarning = pointExtinguishers.filter(ext => ext.status === '1').length
+        const extExpired = pointExtinguishers.filter(ext => ext.status === '2').length
+
+        // 构建信息窗口内容 - 简化版
         let content = `
-          <div style="padding:12px;min-width:280px;">
-            <div style="font-weight:600;margin-bottom:8px;font-size:14px;color:#303133;">${props.title}</div>
-            <div style="font-size:12px;color:#606266;margin-bottom:4px;">${props.info}</div>
-            <div style="font-size:12px;color:#909399;margin-bottom:12px;">状态：${this._getStatusText(props.status)}</div>
-        `
-
-
-        // 添加灭火器信息
-        if (pointExtinguishers.length > 0) {
-          content += `
-            <div style="margin-bottom:10px;">
-              <div style="font-size:13px;font-weight:500;color:#303133;margin-bottom:6px;">灭火器信息</div>
-              <div style="font-size:12px;color:#606266;">
-                <div style="margin-bottom:4px;">数量：${pointExtinguishers.length} 个</div>
-                ${pointExtinguishers.map(ext => `
-                  <div style="margin-top:4px;">
-                    <span>编号：${ext.extinguisherCode}</span>
-                    <span style="margin-left:12px;">状态：${ext.status === 0 ? '正常' : ext.status === 1 ? '预警' : '过期'}</span>
-                  </div>
-                `).join('')}
+          <div style="padding:16px;min-width:300px;">
+            <div style="font-weight:600;margin-bottom:12px;font-size:16px;color:#303133;border-bottom:1px solid #eee;padding-bottom:10px;">
+              ${props.title}
+            </div>
+            <div style="margin-bottom:16px;">
+              <div style="font-size:13px;color:#606266;margin-bottom:6px;">
+                <span style="color:#909399;">位置：</span>${firePoint?.location || '-'} ${firePoint?.building ? firePoint.building + '栋' : ''} ${firePoint?.floor ? firePoint.floor + '层' : ''}
+              </div>
+              <div style="font-size:13px;color:#606266;margin-bottom:6px;">
+                <span style="color:#909399;">所属部门：</span>${firePoint?.deptName || '-'}
+              </div>
+              <div style="font-size:13px;color:#606266;margin-bottom:6px;">
+                <span style="color:#909399;">负责人：</span>${firePoint?.contactPerson || '-'} ${firePoint?.contactPhone ? '(' + firePoint.contactPhone + ')' : ''}
               </div>
             </div>
-          `
-        }
 
-        // 添加传感器信息
-        if (uniqueSensors.length > 0) {
-          content += `
-            <div>
-              <div style="font-size:13px;font-weight:500;color:#303133;margin-bottom:6px;">传感器信息</div>
-              <div style="font-size:12px;color:#606266;">
-                <div style="margin-bottom:4px;">数量：${uniqueSensors.length} 个</div>
-                ${uniqueSensors.map(sensor => `
-                  <div style="margin-top:4px;">
-                    <span>编号：${sensor.sensorCode}</span>
-                    <span style="margin-left:12px;">状态：${sensor.status === 0 ? '正常' : sensor.status === 1 ? '预警' : '低电量'}</span>
-                    ${sensor.pressure ? `<span style="margin-left:12px;">压力：${sensor.pressure}</span>` : ''}
-                    ${sensor.temperature ? `<span style="margin-left:12px;">温度：${sensor.temperature}°C</span>` : ''}
-                    ${sensor.battery ? `<span style="margin-left:12px;">电量：${sensor.battery}%</span>` : ''}
-                  </div>
-                `).join('')}
+            <div style="background:#f5f7fa;border-radius:8px;padding:12px;">
+              <div style="font-size:14px;font-weight:500;color:#303133;margin-bottom:10px;">灭火器统计</div>
+              <div style="display:flex;gap:12px;font-size:13px;">
+                <div style="flex:1;text-align:center;">
+                  <div style="font-size:20px;font-weight:600;color:#409EFF;">${pointExtinguishers.length}</div>
+                  <div style="color:#909399;">总数</div>
+                </div>
+                <div style="flex:1;text-align:center;">
+                  <div style="font-size:20px;font-weight:600;color:#67C23A;">${extNormal}</div>
+                  <div style="color:#909399;">正常</div>
+                </div>
+                <div style="flex:1;text-align:center;">
+                  <div style="font-size:20px;font-weight:600;color:#E6A23C;">${extWarning}</div>
+                  <div style="color:#909399;">待检</div>
+                </div>
+                <div style="flex:1;text-align:center;">
+                  <div style="font-size:20px;font-weight:600;color:#F56C6C;">${extExpired}</div>
+                  <div style="color:#909399;">过期</div>
+                </div>
               </div>
             </div>
-          `
-        }
 
-        content += `</div>`
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee;">
+              <div style="font-size:13px;color:#909399;">
+                传感器数量：${uniqueSensors.length} 个
+              </div>
+            </div>
+        </div>`
 
         // 确保信息窗口已创建
         if (!this.infoWindow) {
@@ -661,16 +657,6 @@ export default {
         'lowbat': 'lowbat'
       }
       return map[status] || 'normal'
-    },
-
-    _getStatusText(status) {
-      const map = {
-        'normal': '正常',
-        'warning': '预警',
-        'expired': '过期',
-        'lowbat': '低电量'
-      }
-      return map[status] || status
     },
 
     _createMarkerIcon(color) {
