@@ -88,6 +88,21 @@ export const constantRoutes = [
 
 // 动态路由，基于用户权限动态去加载
 export const dynamicRoutes = [
+  // 传感器历史数据
+  {
+    path: '/fire/sensor/history',
+    component: Layout,
+    hidden: true,
+    permissions: ['manage:sensor:query'],
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/manage/sensor/history/index'),
+        name: 'SensorHistory',
+        meta: { title: '传感器历史数据', activeMenu: '/fire/sensor' }
+      }
+    ]
+  },
   {
     path: '/system/user-auth',
     component: Layout,

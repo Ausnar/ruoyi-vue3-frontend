@@ -42,3 +42,21 @@ export function delSensor(sensorId) {
     method: 'delete'
   })
 }
+
+// 查询传感器历史数据列表
+export function listSensorHistory(query) {
+  return request({
+    url: '/manage/sensor/history/list',
+    method: 'get',
+    params: query
+  })
+}
+
+// 获取传感器历史数据（用于图表）
+export function getSensorHistoryData(sensorId, startTime, endTime) {
+  return request({
+    url: '/manage/sensor/history/chart',
+    method: 'get',
+    params: { sensorId, startTime, endTime }
+  })
+}

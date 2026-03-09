@@ -145,6 +145,7 @@
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['manage:sensor:edit']">修改</el-button>
+          <el-button link type="success" icon="TrendCharts" @click="handleHistory(scope.row)" v-hasPermi="['manage:sensor:query']">历史</el-button>
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['manage:sensor:remove']">删除</el-button>
         </template>
       </el-table-column>
@@ -224,6 +225,7 @@
 <script setup name="Sensor">
 import { listSensor, getSensor, delSensor, addSensor, updateSensor } from "@/api/manage/sensor"
 import { deptTreeSelect } from "@/api/system/user"
+import router from "@/router"
 
 const { proxy } = getCurrentInstance()
 const { sys_job_status } = proxy.useDict('sys_job_status')
@@ -341,6 +343,14 @@ function handleUpdate(row) {
     form.value = response.data
     open.value = true
     title.value = "修改传感器管理"
+  })
+}
+
+/** 历史数据按钮操作 */
+function handleHistory(row) {
+  router.push({
+    path: '/fire/sensor/history',
+    query: { sensorId: row.sensorId, sensorCode: row.sensorCode }
   })
 }
 
