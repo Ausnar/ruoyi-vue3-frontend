@@ -233,8 +233,32 @@ export default {
       if (hour < 22) return '晚上好'
       return '夜深了'
     },
+    // 统计独立监控单元：只统计状态正常的设备
+    // 绑定传感器的灭火器(1组) + 未绑定灭火器的传感器
     totalDevices() {
-      return this.stats.extinguisherTotal + this.stats.sensorTotal
+      if (!this.extinguishers.length && !this.sensors.length) return 0
+
+      // 只统计状态为0(正常)的灭火器
+      const validExtinguishers = this.extinguishers.filter(ext => ext.status === '0')
+
+      // 找出绑定了传感器的灭火器（这些灭火器和传感器算1组）
+      const boundSensors = new Set()
+      validExtinguishers.forEach(ext => {
+        if (ext.sensorId || ext.sensorCode) {
+          boundSensors.add(ext.sensorId || ext.sensorCode)
+        }
+      })
+
+      // 绑定灭火器的传感器数量（每组算1个）
+      const boundCount = boundSensors.size
+
+      // 未绑定灭火器且状态正常的传感器数量
+      const unboundSensors = this.sensors.filter(s =>
+        s.status === '0' &&
+        !boundSensors.has(s.sensorId) && !boundSensors.has(s.sensorCode)
+      ).length
+
+      return boundCount + unboundSensors
     },
     sensorOnlineRate() {
       if (this.stats.sensorTotal === 0) return 0
