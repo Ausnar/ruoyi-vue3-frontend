@@ -88,7 +88,7 @@
           <div class="panel-header">
             <h3 class="panel-title">
               <i class="el-icon-location"></i>
-              设备位置分布
+              合同用户分布
             </h3>
             <div style="display:flex; align-items:center; gap:8px;">
               <el-button size="mini" @click="fitToBounds" title="定位全部设备">
@@ -103,7 +103,13 @@
           <div class="panel-content map-content">
             <div ref="mapContainer" class="map-container"></div>
             <!-- 地图图例 -->
-            <div class="map-legend">
+            <div class="map-legend" v-if="mapMode === 'dept'">
+              <div class="legend-item">
+                <span class="legend-marker" style="background: #409EFF;"></span>
+                <span class="legend-text">合同单位</span>
+              </div>
+            </div>
+            <div class="map-legend" v-else>
               <div class="legend-item">
                 <span class="legend-marker" style="background: #67C23A;"></span>
                 <span class="legend-text">正常</span>
@@ -169,6 +175,7 @@
 
 <script>
 import { listContract } from '@/api/system/contract'
+import { listDept } from '@/api/system/dept'
 import { listExtinguisher } from '@/api/manage/extinguisher'
 import { listSensor } from '@/api/manage/sensor'
 import { listPoint } from '@/api/manage/point'
@@ -197,6 +204,12 @@ export default {
       extinguishers: [],
       sensors: [],
       productLocations: [], // 用于地图标记的数据
+      // 部门数据（用于地图合同单位显示）
+      deptList: [],
+      // 地图模式：'dept' 显示部门，'device' 显示消防点设备
+      mapMode: 'dept',
+      // 当前选中的部门
+      currentDept: null,
       recentAlarms: [],
       // 定时器
       timeIntervalId: null,
@@ -272,6 +285,16 @@ export default {
         this.stats.contractUserCount = 0
       })
 
+      // 获取部门数据（用于地图显示合同单位）
+      listDept({}).then(response => {
+        // 过滤有经纬度的部门
+        this.deptList = (response.data || []).filter(dept => dept.longitude && dept.latitude)
+        // 默认显示部门标记
+        this.updateDeptMarkers()
+      }).catch(error => {
+        console.error('获取部门数据失败：', error)
+      })
+
       // 使用API获取灭火器数据（用于地图显示）
       listExtinguisher({}).then(response => {
         this.extinguishers = response.rows || []
@@ -292,6 +315,8 @@ export default {
       listPoint({}).then(response => {
         this.firePoints = response.rows || []
         this.updateProductLocations()
+        // 消防点加载完成后更新部门标记（用于显示消防点数量）
+        this.updateDeptMarkers()
       }).catch(error => {
         console.error('获取消防点数据失败：', error)
       })
@@ -304,8 +329,8 @@ export default {
     },
 
     updateProductLocations() {
-      // 只要有消防点数据就开始处理，灭火器和传感器可能还没加载完
-      if (!this.firePoints.length) {
+      // 只有在设备模式下才处理消防点数据
+      if (this.mapMode !== 'device' || !this.firePoints.length) {
         return
       }
 
@@ -355,8 +380,47 @@ export default {
       const dataChanged = JSON.stringify(this.productLocations) !== JSON.stringify(newProductLocations)
       if (dataChanged) {
         this.productLocations = newProductLocations
-        
+
         // 如果地图已初始化，更新标记
+        if (this.map) {
+          this.updateMapMarkers()
+        }
+      }
+    },
+
+    // 更新部门标记（合同单位）
+    updateDeptMarkers() {
+      if (this.mapMode !== 'dept') return
+
+      // 过滤有经纬度的部门
+      const deptMarkers = this.deptList
+        .filter(dept => dept.longitude && dept.latitude)
+        .map(dept => {
+          // 查找该部门下的消防点
+          const deptFirePoints = this.firePoints.filter(fp => Number(fp.deptId) === Number(dept.deptId))
+          // 确定部门状态
+          let status = 'normal'
+          if (deptFirePoints.length === 0 && this.firePoints.length > 0) {
+            status = 'normal' // 没有设备也算正常
+          }
+          return {
+            id: dept.deptId,
+            name: dept.deptName,
+            lat: parseFloat(dept.latitude) || 0,
+            lng: parseFloat(dept.longitude) || 0,
+            status: status,
+            info: [dept.province, dept.city, dept.area].filter(Boolean).join('-'),
+            deptId: dept.deptId,
+            deptName: dept.deptName,
+            leader: dept.leader,
+            phone: dept.phone,
+            firePointCount: deptFirePoints.length
+          }
+        })
+
+      const dataChanged = JSON.stringify(this.productLocations) !== JSON.stringify(deptMarkers)
+      if (dataChanged) {
+        this.productLocations = deptMarkers
         if (this.map) {
           this.updateMapMarkers()
         }
@@ -375,15 +439,24 @@ export default {
 
         // 创建新的标记数据
         const geometries = this.productLocations.map(loc => {
+          // 部门模式使用dept样式，设备模式使用status样式
+          const styleId = this.mapMode === 'dept' ? 'dept' : this._getStyleIdByStatus(loc.status)
           return {
             id: loc.id,
-            styleId: this._getStyleIdByStatus(loc.status),
+            styleId: styleId,
             position: new TMap.LatLng(loc.lat, loc.lng),
             properties: {
               id: loc.id,
               title: loc.name,
               info: loc.info || '',
-              status: loc.status
+              status: loc.status,
+              mapMode: this.mapMode,
+              // 部门额外信息
+              deptId: loc.deptId,
+              deptName: loc.deptName,
+              leader: loc.leader,
+              phone: loc.phone,
+              firePointCount: loc.firePointCount
             }
           }
         })
@@ -392,6 +465,14 @@ export default {
         this.markerLayer = new TMap.MultiMarker({
           map: this.map,
           styles: {
+            // 部门标记样式（蓝色大楼图标）
+            'dept': new TMap.MarkerStyle({
+              width: 32,
+              height: 40,
+              anchor: { x: 16, y: 40 },
+              src: this._createMarkerIcon('#409EFF', true)
+            }),
+            // 设备标记样式
             'normal': new TMap.MarkerStyle({
               width: 28,
               height: 36,
@@ -437,77 +518,15 @@ export default {
       this.markerLayer.on('click', (evt) => {
         const props = evt.geometry.properties
 
-        // 查找与消防点关联的灭火器 (类型转换确保比较正确)
-        const pointExtinguishers = this.extinguishers.filter(
-          ext => Number(ext.firePointId) === Number(props.id)
-        )
+        let content = ''
 
-        // 查找与消防点关联的传感器（通过灭火器间接关联）
-        const pointSensors = []
-        pointExtinguishers.forEach(ext => {
-          // 通过灭火器的 sensorId 或 sensorCode 查找关联的传感器
-          const relatedSensors = this.sensors.filter(
-            sensor => Number(sensor.sensorId) === Number(ext.sensorId) || sensor.sensorCode === ext.sensorCode
-          )
-          pointSensors.push(...relatedSensors)
-        })
-        // 去重
-        const uniqueSensors = [...new Map(pointSensors.map(item => [item.sensorId, item])).values()]
-
-        // 查找消防点详情获取部门信息
-        const firePoint = this.firePoints.find(fp => Number(fp.firePointId) === Number(props.id))
-
-        // 统计灭火器各状态数量
-        const extNormal = pointExtinguishers.filter(ext => ext.status === '0').length
-        const extWarning = pointExtinguishers.filter(ext => ext.status === '1').length
-        const extExpired = pointExtinguishers.filter(ext => ext.status === '2').length
-
-        // 构建信息窗口内容 - 简化版
-        let content = `
-          <div style="padding:16px;min-width:300px;">
-            <div style="font-weight:600;margin-bottom:12px;font-size:16px;color:#303133;border-bottom:1px solid #eee;padding-bottom:10px;">
-              ${props.title}
-            </div>
-            <div style="margin-bottom:16px;">
-              <div style="font-size:13px;color:#606266;margin-bottom:6px;">
-                <span style="color:#909399;">位置：</span>${firePoint?.location || '-'} ${firePoint?.building ? firePoint.building + '栋' : ''} ${firePoint?.floor ? firePoint.floor + '层' : ''}
-              </div>
-              <div style="font-size:13px;color:#606266;margin-bottom:6px;">
-                <span style="color:#909399;">所属部门：</span>${firePoint?.deptName || '-'}
-              </div>
-              <div style="font-size:13px;color:#606266;margin-bottom:6px;">
-                <span style="color:#909399;">负责人：</span>${firePoint?.contactPerson || '-'} ${firePoint?.contactPhone ? '(' + firePoint.contactPhone + ')' : ''}
-              </div>
-            </div>
-
-            <div style="background:#f5f7fa;border-radius:8px;padding:12px;">
-              <div style="font-size:14px;font-weight:500;color:#303133;margin-bottom:10px;">灭火器统计</div>
-              <div style="display:flex;gap:12px;font-size:13px;">
-                <div style="flex:1;text-align:center;">
-                  <div style="font-size:20px;font-weight:600;color:#409EFF;">${pointExtinguishers.length}</div>
-                  <div style="color:#909399;">总数</div>
-                </div>
-                <div style="flex:1;text-align:center;">
-                  <div style="font-size:20px;font-weight:600;color:#67C23A;">${extNormal}</div>
-                  <div style="color:#909399;">正常</div>
-                </div>
-                <div style="flex:1;text-align:center;">
-                  <div style="font-size:20px;font-weight:600;color:#E6A23C;">${extWarning}</div>
-                  <div style="color:#909399;">待检</div>
-                </div>
-                <div style="flex:1;text-align:center;">
-                  <div style="font-size:20px;font-weight:600;color:#F56C6C;">${extExpired}</div>
-                  <div style="color:#909399;">过期</div>
-                </div>
-              </div>
-            </div>
-
-            <div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee;">
-              <div style="font-size:13px;color:#909399;">
-                传感器数量：${uniqueSensors.length} 个
-              </div>
-            </div>
-        </div>`
+        if (props.mapMode === 'dept') {
+          // 部门模式：显示合同单位信息
+          content = this._buildDeptInfoContent(props)
+        } else {
+          // 设备模式：显示消防点设备信息
+          content = this._buildDeviceInfoContent(props)
+        }
 
         // 确保信息窗口已创建
         if (!this.infoWindow) {
@@ -523,7 +542,181 @@ export default {
         this.infoWindow.setPosition(evt.geometry.position)
         this.infoWindow.setContent(content)
         this.infoWindow.open()
+
+        // 添加按钮点击事件（使用setTimeout确保DOM已渲染）
+        setTimeout(() => {
+          // 查看设备分布按钮
+          const viewBtn = document.getElementById('view-devices-btn')
+          if (viewBtn) {
+            viewBtn.onclick = () => {
+              this.switchToDeviceMode(props.deptId)
+            }
+          }
+
+          // 返回合同单位按钮
+          const backBtn = document.getElementById('back-to-dept-btn')
+          if (backBtn) {
+            backBtn.onclick = () => {
+              this.switchToDeptMode()
+            }
+          }
+        }, 100)
       })
+    },
+
+    // 切换到设备模式
+    switchToDeviceMode(deptId) {
+      this.currentDept = this.deptList.find(d => Number(d.deptId) === Number(deptId))
+      this.mapMode = 'device'
+
+      // 关闭信息窗口
+      if (this.infoWindow) {
+        this.infoWindow.close()
+      }
+
+      // 更新标题
+      this.updateMapTitle()
+
+      // 筛选该部门的消防点
+      const filteredPoints = this.firePoints.filter(fp => Number(fp.deptId) === Number(deptId))
+      // 临时替换firePoints用于updateProductLocations
+      const originalFirePoints = [...this.firePoints]
+      this.firePoints = filteredPoints
+      this.updateProductLocations()
+      this.firePoints = originalFirePoints
+    },
+
+    // 切换到部门模式
+    switchToDeptMode() {
+      this.mapMode = 'dept'
+      this.currentDept = null
+
+      // 关闭信息窗口
+      if (this.infoWindow) {
+        this.infoWindow.close()
+      }
+
+      // 更新标题
+      this.updateMapTitle()
+
+      // 重新显示部门标记
+      this.updateDeptMarkers()
+    },
+
+    // 更新地图标题
+    updateMapTitle() {
+      const titleEl = document.querySelector('.panel-title')
+      if (titleEl) {
+        if (this.mapMode === 'dept') {
+          titleEl.innerHTML = '<i class="el-icon-location"></i> 合同用户分布'
+        } else {
+          titleEl.innerHTML = `<i class="el-icon-location"></i> ${this.currentDept?.deptName || ''} 设备分布`
+        }
+      }
+    },
+
+    // 构建部门信息窗口内容
+    _buildDeptInfoContent(props) {
+      return `
+        <div style="padding:16px;min-width:300px;">
+          <div style="font-weight:600;margin-bottom:12px;font-size:16px;color:#303133;border-bottom:1px solid #eee;padding-bottom:10px;">
+            ${props.title}
+          </div>
+          <div style="margin-bottom:16px;">
+            <div style="font-size:13px;color:#606266;margin-bottom:6px;">
+              <span style="color:#909399;">位置：</span>${props.info || '-'}
+            </div>
+            <div style="font-size:13px;color:#606266;margin-bottom:6px;">
+              <span style="color:#909399;">负责人：</span>${props.leader || '-'}
+            </div>
+            <div style="font-size:13px;color:#606266;margin-bottom:6px;">
+              <span style="color:#909399;">联系电话：</span>${props.phone || '-'}
+            </div>
+            <div style="font-size:13px;color:#606266;margin-bottom:6px;">
+              <span style="color:#909399;">消防点数量：</span>${props.firePointCount || 0} 个
+            </div>
+          </div>
+          ${props.firePointCount > 0 ? `
+          <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid #eee;">
+            <button id="view-devices-btn" style="background:#409EFF;color:#fff;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:14px;">查看设备分布</button>
+          </div>
+          ` : ''}
+        </div>`
+    },
+
+    // 构建设备信息窗口内容
+    _buildDeviceInfoContent(props) {
+      // 查找与消防点关联的灭火器
+      const pointExtinguishers = this.extinguishers.filter(
+        ext => Number(ext.firePointId) === Number(props.id)
+      )
+
+      // 查找与消防点关联的传感器
+      const pointSensors = []
+      pointExtinguishers.forEach(ext => {
+        const relatedSensors = this.sensors.filter(
+          sensor => Number(sensor.sensorId) === Number(ext.sensorId) || sensor.sensorCode === ext.sensorCode
+        )
+        pointSensors.push(...relatedSensors)
+      })
+      const uniqueSensors = [...new Map(pointSensors.map(item => [item.sensorId, item])).values()]
+
+      // 查找消防点详情
+      const firePoint = this.firePoints.find(fp => Number(fp.firePointId) === Number(props.id))
+
+      // 统计灭火器各状态数量
+      const extNormal = pointExtinguishers.filter(ext => ext.status === '0').length
+      const extWarning = pointExtinguishers.filter(ext => ext.status === '1').length
+      const extExpired = pointExtinguishers.filter(ext => ext.status === '2').length
+
+      return `
+        <div style="padding:16px;min-width:300px;">
+          <div style="font-weight:600;margin-bottom:12px;font-size:16px;color:#303133;border-bottom:1px solid #eee;padding-bottom:10px;">
+            ${props.title}
+          </div>
+          <div style="margin-bottom:16px;">
+            <div style="font-size:13px;color:#606266;margin-bottom:6px;">
+              <span style="color:#909399;">位置：</span>${firePoint?.location || '-'} ${firePoint?.building ? firePoint.building + '栋' : ''} ${firePoint?.floor ? firePoint.floor + '层' : ''}
+            </div>
+            <div style="font-size:13px;color:#606266;margin-bottom:6px;">
+              <span style="color:#909399;">所属部门：</span>${firePoint?.deptName || '-'}
+            </div>
+            <div style="font-size:13px;color:#606266;margin-bottom:6px;">
+              <span style="color:#909399;">负责人：</span>${firePoint?.contactPerson || '-'} ${firePoint?.contactPhone ? '(' + firePoint.contactPhone + ')' : ''}
+            </div>
+          </div>
+
+          <div style="background:#f5f7fa;border-radius:8px;padding:12px;">
+            <div style="font-size:14px;font-weight:500;color:#303133;margin-bottom:10px;">灭火器统计</div>
+            <div style="display:flex;gap:12px;font-size:13px;">
+              <div style="flex:1;text-align:center;">
+                <div style="font-size:20px;font-weight:600;color:#409EFF;">${pointExtinguishers.length}</div>
+                <div style="color:#909399;">总数</div>
+              </div>
+              <div style="flex:1;text-align:center;">
+                <div style="font-size:20px;font-weight:600;color:#67C23A;">${extNormal}</div>
+                <div style="color:#909399;">正常</div>
+              </div>
+              <div style="flex:1;text-align:center;">
+                <div style="font-size:20px;font-weight:600;color:#E6A23C;">${extWarning}</div>
+                <div style="color:#909399;">待检</div>
+              </div>
+              <div style="flex:1;text-align:center;">
+                <div style="font-size:20px;font-weight:600;color:#F56C6C;">${extExpired}</div>
+                <div style="color:#909399;">过期</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee;">
+            <div style="font-size:13px;color:#909399;">
+              传感器数量：${uniqueSensors.length} 个
+            </div>
+          </div>
+          <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid #eee;">
+            <button id="back-to-dept-btn" style="background:#909399;color:#fff;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:14px;">返回合同单位</button>
+          </div>
+        </div>`
     },
 
     loadRecentAlarms() {
@@ -634,11 +827,25 @@ export default {
       return map[status] || 'normal'
     },
 
-    _createMarkerIcon(color) {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='36'>
-        <path d='M14 36s-10-7.9-10-18a10 10 0 1 1 20 0c0 10.1-10 18-10 18z' fill='${color}'/>
-        <circle cx='14' cy='12' r='4' fill='#fff'/>
-      </svg>`
+    _createMarkerIcon(color, isDept = false) {
+      let svg
+      if (isDept) {
+        // 部门标记：大楼形状
+        svg = `<svg xmlns='http://www.w3.org/2000/svg' width='32' height='40'>
+          <path d='M16 0L0 12v28h32V12L16 0z' fill='${color}'/>
+          <rect x='6' y='18' width='6' height='8' fill='#fff' opacity='0.8'/>
+          <rect x='13' y='18' width='6' height='8' fill='#fff' opacity='0.8'/>
+          <rect x='20' y='18' width='6' height='8' fill='#fff' opacity='0.8'/>
+          <rect x='6' y='30' width='6' height='6' fill='#fff' opacity='0.8'/>
+          <rect x='20' y='30' width='6' height='6' fill='#fff' opacity='0.8'/>
+        </svg>`
+      } else {
+        // 设备标记：气球形状
+        svg = `<svg xmlns='http://www.w3.org/2000/svg' width='28' height='36'>
+          <path d='M14 36s-10-7.9-10-18a10 10 0 1 1 20 0c0 10.1-10 18-10 18z' fill='${color}'/>
+          <circle cx='14' cy='12' r='4' fill='#fff'/>
+        </svg>`
+      }
       return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
     },
 
