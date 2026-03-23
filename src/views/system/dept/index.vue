@@ -63,6 +63,11 @@
                <dict-tag :options="sys_normal_disable" :value="scope.row.status" />
             </template>
          </el-table-column>
+         <el-table-column prop="province" label="省市区" min-width="150">
+            <template #default="scope">
+               <span>{{ [scope.row.province, scope.row.city, scope.row.area].filter(Boolean).join('-') }}</span>
+            </template>
+         </el-table-column>
          <el-table-column label="创建时间" align="center" prop="createTime" min-width="200">
             <template #default="scope">
                <span>{{ parseTime(scope.row.createTime) }}</span>
@@ -118,6 +123,29 @@
                      <el-input v-model="form.email" placeholder="请输入邮箱" maxlength="50" />
                   </el-form-item>
                </el-col>
+               <el-col :span="24">
+                  <el-form-item label="省市区" prop="region">
+                     <el-cascader
+                        v-model="region"
+                        :options="regionDataOptions"
+                        :props="{ value: 'value', label: 'label', children: 'children', checkStrictly: true }"
+                        placeholder="请选择省市区"
+                        clearable
+                        style="width: 100%"
+                        @change="handleRegionChange"
+                     />
+                  </el-form-item>
+               </el-col>
+               <el-col :span="12">
+                  <el-form-item label="经度" prop="longitude">
+                     <el-input v-model="form.longitude" placeholder="请输入经度" />
+                  </el-form-item>
+               </el-col>
+               <el-col :span="12">
+                  <el-form-item label="纬度" prop="latitude">
+                     <el-input v-model="form.latitude" placeholder="请输入纬度" />
+                  </el-form-item>
+               </el-col>
                <el-col :span="12">
                   <el-form-item label="部门状态">
                      <el-radio-group v-model="form.status">
@@ -143,6 +171,7 @@
 
 <script setup name="Dept">
 import { listDept, getDept, delDept, addDept, updateDept, listDeptExcludeChild } from "@/api/system/dept"
+import { regionData } from "@/utils/regionData"
 
 const { proxy } = getCurrentInstance()
 const { sys_normal_disable } = proxy.useDict("sys_normal_disable")
@@ -155,6 +184,8 @@ const title = ref("")
 const deptOptions = ref([])
 const isExpandAll = ref(true)
 const refreshTable = ref(true)
+const region = ref([])
+const regionDataOptions = ref(regionData)
 
 const data = reactive({
   form: {},
@@ -198,8 +229,14 @@ function reset() {
     leader: undefined,
     phone: undefined,
     email: undefined,
+    province: undefined,
+    city: undefined,
+    area: undefined,
+    longitude: undefined,
+    latitude: undefined,
     status: "0"
   }
+  region.value = []
   proxy.resetForm("deptRef")
 }
 
@@ -236,6 +273,19 @@ function toggleExpandAll() {
   })
 }
 
+/** 省市区选择变化 */
+function handleRegionChange(value) {
+  if (value && value.length > 0) {
+    form.value.province = value[0] || ''
+    form.value.city = value[1] || ''
+    form.value.area = value[2] || ''
+  } else {
+    form.value.province = ''
+    form.value.city = ''
+    form.value.area = ''
+  }
+}
+
 /** 修改按钮操作 */
 function handleUpdate(row) {
   reset()
@@ -244,6 +294,16 @@ function handleUpdate(row) {
   })
   getDept(row.deptId).then(response => {
     form.value = response.data
+    // 初始化省市区级联选择器
+    if (form.value.province) {
+      region.value = [form.value.province]
+      if (form.value.city) {
+        region.value.push(form.value.city)
+        if (form.value.area) {
+          region.value.push(form.value.area)
+        }
+      }
+    }
     open.value = true
     title.value = "修改部门"
   })

@@ -42,3 +42,37 @@ export function delContract(configId) {
     method: 'delete'
   })
 }
+
+// 合同状态分布统计
+export function getStatusStatistics() {
+  return request({
+    url: '/system/contract/statistics/status',
+    method: 'get'
+  })
+}
+
+// 合同过期状态分布统计
+export function getExpireStatusStatistics() {
+  return request({
+    url: '/system/contract/statistics/expireStatus',
+    method: 'get'
+  })
+}
+
+// 合同数量TOP部门统计
+export function getTopDeptStatistics(limit = 10) {
+  return request({
+    url: '/system/contract/statistics/topDept',
+    method: 'get',
+    params: { limit }
+  })
+}
+
+// 合同到期趋势统计
+export function getExpiryTrendStatistics(months = 6) {
+  return request({
+    url: '/system/contract/statistics/expiryTrend',
+    method: 'get',
+    params: { months }
+  })
+}
