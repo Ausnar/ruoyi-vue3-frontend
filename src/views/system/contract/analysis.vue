@@ -135,18 +135,35 @@ export default {
       const provinceMap = {}
       const cityMap = {}
 
+      // 直辖市列表
+      const municipalities = ['北京市', '上海市', '天津市', '重庆市']
+
       contracts.forEach(contract => {
         const dept = deptMap[contract.deptId]
         if (!dept) return
 
-        const province = dept.province
-        const city = dept.city
+        let province = dept.province
+        let city = dept.city
+        const area = dept.area
 
-        if (province) {
-          provinceMap[province] = (provinceMap[province] || 0) + 1
-        }
+        if (!province) return
+
+        // 处理直辖市：直辖市的省=市，需要在省份统计时显示
+        const isMunicipality = municipalities.includes(province)
+
+        // 省份统计
+        provinceMap[province] = (provinceMap[province] || 0) + 1
+
+        // 城市统计
         if (city) {
-          const cityKey = province ? `${province}-${city}` : city
+          let cityKey
+          if (isMunicipality && city === province) {
+            // 直辖市：显示为 "北京市-朝阳区" 格式
+            cityKey = area ? `${province}-${area}` : province
+          } else {
+            // 非直辖市：显示为 "省份-城市" 格式
+            cityKey = `${province}-${city}`
+          }
           cityMap[cityKey] = (cityMap[cityKey] || 0) + 1
         }
       })
