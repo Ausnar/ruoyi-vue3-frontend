@@ -8,7 +8,7 @@
             <i class="el-icon-s-home"></i>
             安众道APS物联网灭火器管理系统
           </h1>
-          <p class="welcome-subtitle">{{ greeting }}，{{ userName }}！实时监控 {{ totalDevices }} 台设备运行状态</p>
+          <p class="welcome-subtitle">{{ greeting }}，{{ userName }}！服务 {{ stats.contractUserCount }} 家合同用户</p>
         </div>
         <div class="time-display">
           <div class="current-date">{{ currentDate }}</div>
@@ -19,39 +19,21 @@
 
     <!-- 统计卡片 -->
     <el-row :gutter="20" class="stats-row">
+      <!-- 合同用户卡片 -->
       <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
-        <div class="stat-card card-extinguisher" @click="navigateTo('/fire/extinguisher')">
+        <div class="stat-card card-contract" @click="navigateTo('/system/contract')">
           <div class="stat-icon">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L10.5 5H13.5L12 2Z" fill="currentColor"/>
-              <rect x="8" y="5" width="8" height="15" rx="1" fill="currentColor" opacity="0.2"/>
-              <rect x="9" y="6" width="6" height="2" fill="currentColor"/>
-              <circle cx="12" cy="13" r="2" fill="currentColor"/>
-              <rect x="10" y="20" width="4" height="2" rx="0.5" fill="currentColor"/>
+              <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </div>
           <div class="stat-content">
-            <div class="stat-label">灭火器总数</div>
-            <div class="stat-value">{{ stats.extinguisherTotal }}</div>
-          </div>
-        </div>
-      </el-col>
-
-      <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
-        <div class="stat-card card-sensor" @click="navigateTo('/fire/sensor')">
-          <div class="stat-icon">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2" fill="none"/>
-              <circle cx="12" cy="12" r="4" fill="currentColor" opacity="0.3"/>
-              <circle cx="12" cy="12" r="2" fill="currentColor"/>
-              <path d="M12 4V2M12 22V20M20 12H22M2 12H4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </div>
-          <div class="stat-content">
-            <div class="stat-label">在线传感器</div>
-            <div class="stat-value">{{ stats.sensorOnline }}/{{ stats.sensorTotal }}</div>
-            <div class="stat-trend trend-neutral">
-              在线率 {{ sensorOnlineRate }}%
+            <div class="stat-label">合同用户</div>
+            <div class="stat-value">{{ stats.contractUserCount }}</div>
+            <div class="stat-trend trend-up">
+              <i class="el-icon-user"></i>
+              家
             </div>
           </div>
         </div>
@@ -186,8 +168,9 @@
 </template>
 
 <script>
-import { listSensor } from '@/api/manage/sensor'
+import { listContract } from '@/api/system/contract'
 import { listExtinguisher } from '@/api/manage/extinguisher'
+import { listSensor } from '@/api/manage/sensor'
 import { listPoint } from '@/api/manage/point'
 
 export default {
@@ -198,9 +181,7 @@ export default {
       currentDate: '',
       currentTime: '',
       stats: {
-        extinguisherTotal: 0,
-        sensorTotal: 0,
-        sensorOnline: 0,
+        contractUserCount: 0,
         alarmPending: 0,
         alarmPendingHigh: 0,
         maintenanceMonth: 0,
@@ -233,37 +214,6 @@ export default {
       if (hour < 22) return '晚上好'
       return '夜深了'
     },
-    // 统计独立监控单元：只统计状态正常的设备
-    // 绑定传感器的灭火器(1组) + 未绑定灭火器的传感器
-    totalDevices() {
-      if (!this.extinguishers.length && !this.sensors.length) return 0
-
-      // 只统计状态为0(正常)的灭火器
-      const validExtinguishers = this.extinguishers.filter(ext => ext.status === '0')
-
-      // 找出绑定了传感器的灭火器（这些灭火器和传感器算1组）
-      const boundSensors = new Set()
-      validExtinguishers.forEach(ext => {
-        if (ext.sensorId || ext.sensorCode) {
-          boundSensors.add(ext.sensorId || ext.sensorCode)
-        }
-      })
-
-      // 绑定灭火器的传感器数量（每组算1个）
-      const boundCount = boundSensors.size
-
-      // 未绑定灭火器且状态正常的传感器数量
-      const unboundSensors = this.sensors.filter(s =>
-        s.status === '0' &&
-        !boundSensors.has(s.sensorId) && !boundSensors.has(s.sensorCode)
-      ).length
-
-      return boundCount + unboundSensors
-    },
-    sensorOnlineRate() {
-      if (this.stats.sensorTotal === 0) return 0
-      return Math.round((this.stats.sensorOnline / this.stats.sensorTotal) * 100)
-    }
   },
   mounted() {
     this.initPage()
@@ -314,30 +264,31 @@ export default {
     },
 
     loadStatistics() {
-      // 使用API获取灭火器数据
+      // 获取合同用户数量
+      listContract({}).then(response => {
+        this.stats.contractUserCount = response.total || 0
+      }).catch(error => {
+        console.error('获取合同用户数据失败：', error)
+        this.stats.contractUserCount = 0
+      })
+
+      // 使用API获取灭火器数据（用于地图显示）
       listExtinguisher({}).then(response => {
         this.extinguishers = response.rows || []
-        this.stats.extinguisherTotal = response.total || 0
         this.updateProductLocations()
       }).catch(error => {
         console.error('获取灭火器数据失败：', error)
-        this.stats.extinguisherTotal = 0
       })
 
-      // 使用API获取传感器数据
+      // 使用API获取传感器数据（用于地图显示）
       listSensor({}).then(response => {
         this.sensors = response.rows || []
-        this.stats.sensorTotal = response.total || 0
-        // 计算在线传感器数量（状态为0表示正常）
-        this.stats.sensorOnline = this.sensors.filter(sensor => sensor.status === 0).length
         this.updateProductLocations()
       }).catch(error => {
         console.error('获取传感器数据失败：', error)
-        this.stats.sensorTotal = 0
-        this.stats.sensorOnline = 0
       })
 
-      // 使用API获取消防点数据
+      // 使用API获取消防点数据（用于地图显示）
       listPoint({}).then(response => {
         this.firePoints = response.rows || []
         this.updateProductLocations()
@@ -926,13 +877,24 @@ export default {
     &::before {
       background: #F56C6C;
     }
-    
+
     .stat-icon {
       background: rgba(245, 108, 108, 0.1);
       color: #F56C6C;
     }
   }
-  
+
+  &.card-contract {
+    &::before {
+      background: #409EFF;
+    }
+
+    .stat-icon {
+      background: rgba(64, 158, 255, 0.1);
+      color: #409EFF;
+    }
+  }
+
   &.card-maintenance {
     &::before {
       background: #E6A23C;
