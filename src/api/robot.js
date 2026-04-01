@@ -5,6 +5,7 @@ export function sendMessage(data) {
   return request({
     url: '/robot/chat',
     method: 'post',
-    data: data
+    data: data,
+    timeout: 300000  // 智能问答特殊超时：180秒，匹配后端重试等待时间
   })
 }
