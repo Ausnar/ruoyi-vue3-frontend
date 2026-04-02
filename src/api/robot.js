@@ -1,11 +1,34 @@
 import request from '@/utils/request'
 
-// 发送消息获取AI回复
 export function sendMessage(data) {
   return request({
     url: '/robot/chat',
     method: 'post',
-    data: data,
-    timeout: 300000  // 智能问答特殊超时：180秒，匹配后端重试等待时间
+    data,
+    timeout: 300000,
+    headers: {
+      repeatSubmit: false
+    }
+  })
+}
+
+export function getConversationList() {
+  return request({
+    url: '/robot/conversations',
+    method: 'get'
+  })
+}
+
+export function getConversationDetail(conversationId) {
+  return request({
+    url: `/robot/conversations/${conversationId}`,
+    method: 'get'
+  })
+}
+
+export function deleteConversation(conversationId) {
+  return request({
+    url: `/robot/conversations/${conversationId}`,
+    method: 'delete'
   })
 }
