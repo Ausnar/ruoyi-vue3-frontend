@@ -1,13 +1,13 @@
 <template>
-  <div class="robot-page">
+  <div ref="robotPageRef" class="robot-page" :style="robotPageStyle">
     <div class="robot-layout">
       <aside class="conversation-panel">
-        <div class="panel-header">
-          <div>
+        <div class="panel-header panel-header-side">
+          <div class="header-copy header-copy-side">
             <h3>智能问答</h3>
-            <p>像 Coze 一样保留历史会话和连续上下文</p>
+            <p>查看近期记录，继续当前问题</p>
           </div>
-          <el-button type="primary" plain @click="startNewConversation">
+          <el-button class="new-chat-btn" type="primary" plain @click="startNewConversation">
             <el-icon><RefreshRight /></el-icon>
             新建会话
           </el-button>
@@ -15,7 +15,7 @@
 
         <div class="conversation-scroll">
           <div v-if="conversationLoading" class="side-placeholder">正在加载历史会话...</div>
-          <div v-else-if="!conversations.length" class="side-placeholder">还没有历史会话，发送第一条消息后会自动创建</div>
+          <div v-else-if="!conversations.length" class="side-placeholder">暂无历史会话，开始提问后会自动保留最近记录</div>
           <button
             v-for="item in conversations"
             :key="item.conversationId"
@@ -25,7 +25,7 @@
             @click="openConversation(item.conversationId)"
           >
             <div class="conversation-main">
-              <div class="conversation-title">{{ item.title || '新建会话' }}</div>
+              <div class="conversation-title">{{ item.title || '未命名会话' }}</div>
               <div class="conversation-preview">{{ item.lastMessagePreview || '暂无内容' }}</div>
               <div class="conversation-meta">
                 <span>{{ item.messageCount || 0 }} 条消息</span>
@@ -46,13 +46,13 @@
 
       <section class="chat-panel">
         <div class="chat-header">
-          <div>
+          <div class="header-copy">
             <h3>{{ currentConversationTitle }}</h3>
             <p>{{ currentConversationDesc }}</p>
           </div>
           <div class="header-status">
             <span class="status-chip" :class="{ active: !!activeConversationId }">
-              {{ activeConversationId ? '已连接历史上下文' : '等待创建新会话' }}
+              {{ activeConversationId ? '会话进行中' : '准备开始' }}
             </span>
           </div>
         </div>
@@ -63,7 +63,7 @@
               <el-icon size="42"><ChatDotRound /></el-icon>
             </div>
             <h4>你好，我是智能问答助手</h4>
-            <p>你可以连续追问做 BP、写 PPT、大纲整理、资料归纳，我会尽量保留上下文并把结果整理成易读内容。</p>
+            <p>你可以围绕公司资料、方案撰写、汇报整理等内容持续提问，我会尽量给出清晰、完整的答复。</p>
             <div class="quick-prompts">
               <button
                 v-for="prompt in quickPrompts"
@@ -94,7 +94,7 @@
                 <span v-if="msg.role === 'assistant' && msg.answerType" class="meta-chip">
                   {{ formatAnswerMeta(msg) }}
                 </span>
-                <span v-if="msg.status === 'error'" class="meta-chip danger">异常</span>
+                <span v-if="msg.status === 'error'" class="meta-chip danger">未完成</span>
               </div>
 
               <div
@@ -149,7 +149,7 @@
               </div>
               <div class="message-footer">
                 <span class="message-time">已等待 {{ formatDuration(loadingElapsedMs) }}</span>
-                <span class="message-time">长任务处理中时，请耐心等待，不要频繁切换页面</span>
+                <span class="message-time">内容较长时生成会稍慢，请稍候查看结果</span>
               </div>
             </div>
           </div>
@@ -161,12 +161,12 @@
             type="textarea"
             :rows="4"
             resize="none"
-            placeholder="请输入问题，Enter 发送，Shift+Enter 换行"
+            placeholder="请输入问题，按 Enter 发送，Shift + Enter 换行"
             @keydown.enter="handleSendMessage"
           />
           <div class="composer-footer">
             <div class="composer-tip">
-              历史会话会自动保存到后端。点击左侧会话可以继续追问，点击“新建会话”会从空白上下文重新开始。
+              系统会自动保留会话记录，方便后续继续查看与追问。
             </div>
             <el-button
               type="primary"
@@ -208,10 +208,10 @@ import {
 const ACTIVE_KEY = 'robot_active_conversation_id'
 const DRAFT_KEY = 'robot_draft_message'
 const quickPrompts = [
-  '帮我做一份公司 BP',
-  '给我一版项目路演 PPT 大纲',
-  '总结一下公司的核心成员和优势',
-  '把资料整理成适合汇报的 Markdown'
+  '生成公司 BP 提纲',
+  '整理一版路演 PPT 大纲',
+  '总结公司的核心成员和优势',
+  '整理成适合汇报的 Markdown'
 ]
 
 const renderer = new marked.Renderer()
@@ -239,33 +239,43 @@ const loading = ref(false)
 const conversationLoading = ref(false)
 const detailLoading = ref(false)
 const messageListRef = ref(null)
+const robotPageRef = ref(null)
 const loadingElapsedMs = ref(0)
 const loadingStartedAt = ref(0)
+const pageHeight = ref('calc(100vh - 108px)')
 let loadingTimer = null
 
 const currentConversationTitle = computed(() => {
-  return currentConversation.value?.title || (activeConversationId.value ? '历史会话' : '新建会话')
+  return currentConversation.value?.title || (activeConversationId.value ? '当前会话' : '智能问答')
 })
 
 const currentConversationDesc = computed(() => {
   if (activeConversationId.value && currentConversation.value) {
-    return `当前正在查看历史会话，已保存 ${currentConversation.value.messageCount || 0} 条消息`
+    return `当前会话已保存 ${currentConversation.value.messageCount || 0} 条消息，可继续围绕当前主题提问`
   }
-  return '当前是空白草稿态，发送第一条消息后会自动创建新的 conversation_id'
+  return '开始提问后，系统会自动创建会话并保留记录'
 })
 
 const loadingHint = computed(() => {
-  if (loadingElapsedMs.value >= 90000) return '正在处理长任务，可能还在整理插件或卡片结果'
-  if (loadingElapsedMs.value >= 30000) return '正在继续生成内容，请稍等'
-  return '正在思考并生成回复'
+  if (loadingElapsedMs.value >= 90000) return '正在整理较长内容，请再稍候片刻'
+  if (loadingElapsedMs.value >= 30000) return '正在继续生成，请稍候'
+  return '正在生成回复'
 })
 
+const robotPageStyle = computed(() => ({
+  height: pageHeight.value
+}))
+
 onMounted(async () => {
+  window.addEventListener('resize', updatePageHeight)
   await initializePage()
+  await nextTick()
+  updatePageHeight()
 })
 
 onBeforeUnmount(() => {
   stopLoadingTimer()
+  window.removeEventListener('resize', updatePageHeight)
 })
 
 watch(inputMessage, (value) => {
@@ -284,6 +294,17 @@ watch(
   () => [messages.value.length, loading.value],
   () => scrollToBottom()
 )
+
+function updatePageHeight() {
+  const page = robotPageRef.value
+  if (!page || typeof window === 'undefined') return
+
+  const rect = page.getBoundingClientRect()
+  const viewportHeight = window.innerHeight
+  const bottomGap = 12
+  const availableHeight = Math.max(560, Math.floor(viewportHeight - rect.top - bottomGap))
+  pageHeight.value = `${availableHeight}px`
+}
 
 async function initializePage() {
   await loadConversationList()
@@ -305,7 +326,7 @@ async function loadConversationList() {
     const list = Array.isArray(response.data) ? response.data : []
     conversations.value = list.map((item) => ({
       conversationId: item.conversationId,
-      title: item.title || '新建会话',
+      title: item.title || '未命名会话',
       lastMessagePreview: item.lastMessagePreview || '',
       messageCount: Number(item.messageCount || 0),
       updateTime: item.updateTime || item.createTime || ''
@@ -326,7 +347,9 @@ async function openConversation(conversationId) {
     currentConversation.value = data.conversation || null
     activeConversationId.value = conversationId
     messages.value = Array.isArray(data.messages)
-      ? data.messages.map((item) => buildMessage({
+      ? [...data.messages]
+          .sort((a, b) => compareMessageOrder(a, b))
+          .map((item) => buildMessage({
           id: item.messageId,
           role: item.role,
           content: item.content,
@@ -350,7 +373,7 @@ function startNewConversation(showMessage = true) {
   currentConversation.value = null
   messages.value = []
   if (showMessage) {
-    ElMessage.success('已切换到新建会话状态')
+    ElMessage.success('已开始新会话')
   }
 }
 
@@ -482,6 +505,23 @@ function buildMessage(payload) {
   }
 }
 
+function compareMessageOrder(a, b) {
+  const timeA = parseMessageTimestamp(a?.createTime)
+  const timeB = parseMessageTimestamp(b?.createTime)
+  if (timeA !== timeB) return timeA - timeB
+
+  const idA = Number(a?.messageId || 0)
+  const idB = Number(b?.messageId || 0)
+  return idA - idB
+}
+
+function parseMessageTimestamp(value) {
+  if (!value) return 0
+  const date = new Date(String(value).replace(/-/g, '/'))
+  const timestamp = date.getTime()
+  return Number.isNaN(timestamp) ? 0 : timestamp
+}
+
 function startLoadingTimer() {
   stopLoadingTimer()
   loadingStartedAt.value = Date.now()
@@ -508,10 +548,9 @@ function scrollToBottom() {
 }
 
 function formatAnswerMeta(message) {
-  const parts = []
-  if (message.answerType) parts.push(message.answerType)
-  if (message.responseType && message.responseType !== message.answerType) parts.push(message.responseType)
-  return parts.join(' / ') || '文本回复'
+  if (message.status === 'timeout' || message.answerType === 'timeout') return '等待时间较长'
+  if (message.responseType === 'markdown' || message.responseType === 'card') return '已整理'
+  return '已回复'
 }
 
 function formatDuration(ms) {
@@ -569,8 +608,10 @@ function sanitizeUrl(url) {
 
 <style scoped>
 .robot-page {
-  height: 100%;
+  height: calc(100vh - 108px);
   padding: 12px;
+  box-sizing: border-box;
+  overflow: hidden;
   background:
     radial-gradient(circle at top right, rgba(64, 158, 255, 0.16), transparent 28%),
     linear-gradient(180deg, #f6fbff 0%, #eef3f8 100%);
@@ -581,10 +622,12 @@ function sanitizeUrl(url) {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
   gap: 16px;
+  align-items: stretch;
 }
 
 .conversation-panel,
 .chat-panel {
+  height: 100%;
   min-height: 0;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(205, 218, 229, 0.9);
@@ -600,36 +643,97 @@ function sanitizeUrl(url) {
 
 .panel-header,
 .chat-header {
-  padding: 20px;
-  border-bottom: 1px solid rgba(225, 232, 240, 0.9);
-  background: linear-gradient(135deg, rgba(248, 251, 255, 0.96), rgba(255, 255, 255, 0.92));
+  position: relative;
+  box-sizing: border-box;
+  border-bottom: 1px solid rgba(221, 230, 238, 0.9);
+  background:
+    radial-gradient(circle at top right, rgba(64, 158, 255, 0.12), transparent 26%),
+    linear-gradient(180deg, rgba(250, 252, 255, 0.98), rgba(255, 255, 255, 0.94));
+  backdrop-filter: blur(10px);
 }
 
-.panel-header h3,
-.chat-header h3 {
-  margin: 0;
-  font-size: 20px;
-  color: #243447;
+.panel-header h3 {
+  margin: 4px 0 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #1f2f41;
 }
 
-.panel-header p,
-.chat-header p {
-  margin: 6px 0 0;
+.panel-header p {
+  margin: 8px 0 0;
   font-size: 13px;
-  color: #6b7a8c;
+  color: #738293;
+  line-height: 1.6;
+  max-width: 520px;
 }
 
 .panel-header {
+  padding: 22px 24px 20px;
+  min-height: 150px;
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: flex-start;
 }
 
+.panel-header-side {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(252, 253, 255, 0.96));
+}
+
+.header-copy {
+  min-width: 0;
+}
+
+.header-copy-side h3 {
+  font-size: 20px;
+  margin-top: 0;
+}
+
+.header-copy-side p {
+  max-width: none;
+  margin-top: 10px;
+}
+
+.section-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7b8a9a;
+}
+
+.section-kicker::before {
+  content: '';
+  width: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(64, 158, 255, 0.75), rgba(64, 158, 255, 0.15));
+}
+
+.new-chat-btn {
+  width: 100%;
+  height: 42px;
+  border-radius: 14px;
+  justify-content: center;
+  font-weight: 600;
+  background: rgba(248, 251, 255, 0.92);
+  border-color: rgba(146, 185, 228, 0.95);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
 .conversation-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  padding: 14px;
+  background: linear-gradient(180deg, rgba(250, 252, 254, 0.52), rgba(255, 255, 255, 0.96));
 }
 
 .side-placeholder {
@@ -644,24 +748,44 @@ function sanitizeUrl(url) {
 }
 
 .conversation-item {
+  position: relative;
   width: 100%;
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  border: none;
-  margin-bottom: 10px;
-  padding: 14px;
+  border: 1px solid rgba(230, 236, 242, 0.95);
+  margin-bottom: 12px;
+  padding: 16px 16px 15px;
   text-align: left;
-  background: #f8fbfd;
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 18px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: 0 8px 20px rgba(31, 45, 61, 0.04);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.conversation-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 999px;
+  background: transparent;
+  transition: background 0.18s ease;
 }
 
 .conversation-item:hover,
 .conversation-item.active {
-  background: linear-gradient(135deg, rgba(64, 158, 255, 0.12), rgba(64, 158, 255, 0.04));
-  box-shadow: 0 12px 30px rgba(31, 45, 61, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(248, 251, 255, 0.98));
+  border-color: rgba(207, 222, 236, 0.95);
+  box-shadow: 0 14px 28px rgba(31, 45, 61, 0.07);
+  transform: translateY(-1px);
+}
+
+.conversation-item.active::before {
+  background: linear-gradient(180deg, #4d9fff, #2a7be7);
 }
 
 .conversation-main {
@@ -672,14 +796,19 @@ function sanitizeUrl(url) {
 .conversation-title {
   font-size: 14px;
   font-weight: 600;
-  color: #223244;
+  color: #203244;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .conversation-preview {
-  margin-top: 6px;
+  margin-top: 7px;
   font-size: 12px;
-  line-height: 1.6;
-  color: #6e7c89;
+  line-height: 1.7;
+  color: #708091;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -687,16 +816,31 @@ function sanitizeUrl(url) {
 }
 
 .conversation-meta {
-  margin-top: 8px;
+  margin-top: 10px;
   display: flex;
   justify-content: space-between;
   gap: 8px;
   font-size: 12px;
-  color: #8b98a7;
+  color: #8a98a8;
 }
 
 .delete-btn {
   flex-shrink: 0;
+  margin-top: 1px;
+  opacity: 0;
+  color: #e37a7a;
+  transition: opacity 0.18s ease, color 0.18s ease;
+}
+
+.conversation-item:hover .delete-btn,
+.conversation-item.active .delete-btn {
+  opacity: 0.8;
+}
+
+.conversation-item:hover .delete-btn:hover,
+.conversation-item.active .delete-btn:hover {
+  opacity: 1;
+  color: #dd6161;
 }
 
 .chat-panel {
@@ -706,38 +850,73 @@ function sanitizeUrl(url) {
 }
 
 .chat-header {
+  padding: 10px 20px 8px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
 }
 
+.chat-header h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  color: #1f2f41;
+}
+
+.chat-header p {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #7c8a99;
+  line-height: 1.45;
+  max-width: 520px;
+}
+
 .status-chip,
 .meta-chip {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: #edf2f7;
-  color: #4b5b6b;
-  font-size: 12px;
+  background: rgba(235, 240, 245, 0.9);
+  color: #526171;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid rgba(220, 228, 236, 0.9);
 }
 
 .status-chip.active,
 .meta-chip.active {
-  background: rgba(64, 158, 255, 0.12);
+  background: rgba(64, 158, 255, 0.1);
   color: #1d6fdc;
+  border-color: rgba(64, 158, 255, 0.16);
 }
 
 .meta-chip.danger {
   background: rgba(245, 108, 108, 0.12);
   color: #dd6161;
+  border-color: rgba(245, 108, 108, 0.16);
+}
+
+.status-chip::before,
+.meta-chip::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.7;
 }
 
 .message-list {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 16px 20px 20px;
+  background:
+    linear-gradient(180deg, rgba(249, 251, 253, 0.7), rgba(255, 255, 255, 0.96) 18%, rgba(255, 255, 255, 1));
 }
 
 .empty-state {
@@ -850,35 +1029,40 @@ function sanitizeUrl(url) {
 }
 
 .message-footer {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .role-name,
 .message-time {
   font-size: 12px;
-  color: #8a97a6;
+  color: #8391a0;
+  font-weight: 500;
 }
 
 .message-text {
-  padding: 14px 16px;
-  border-radius: 18px;
-  line-height: 1.8;
+  padding: 16px 18px;
+  border-radius: 20px;
+  line-height: 1.85;
   font-size: 14px;
   word-break: break-word;
-  box-shadow: 0 10px 24px rgba(31, 45, 61, 0.05);
+  box-shadow: 0 14px 34px rgba(31, 45, 61, 0.06);
 }
 
 .user .message-text {
-  background: linear-gradient(135deg, #3497ff, #1e7ce8);
+  background:
+    linear-gradient(135deg, #3b98f8, #287fe8 58%, #1f73dc);
   color: #fff;
-  border-top-right-radius: 6px;
+  border-top-right-radius: 8px;
+  box-shadow: 0 16px 32px rgba(38, 121, 220, 0.22);
 }
 
 .assistant .message-text {
-  background: #ffffff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 252, 255, 0.96));
   color: #243447;
-  border: 1px solid rgba(225, 232, 240, 0.95);
-  border-top-left-radius: 6px;
+  border: 1px solid rgba(224, 232, 240, 0.95);
+  border-top-left-radius: 8px;
+  box-shadow: 0 18px 36px rgba(31, 45, 61, 0.05);
 }
 
 .message-item.error .message-text {
@@ -935,7 +1119,7 @@ function sanitizeUrl(url) {
   margin: 10px 0;
   padding: 14px;
   border-radius: 12px;
-  background: #18222d;
+  background: linear-gradient(180deg, #18222d, #111a24);
   color: #f5f7fa;
   overflow-x: auto;
 }
@@ -964,6 +1148,7 @@ function sanitizeUrl(url) {
 .typing-line {
   display: block;
   margin-bottom: 10px;
+  color: #506272;
 }
 
 .typing-dots {
@@ -1010,6 +1195,7 @@ function sanitizeUrl(url) {
   font-size: 12px;
   color: #7d8b99;
   line-height: 1.6;
+  max-width: 540px;
 }
 
 .send-btn {
