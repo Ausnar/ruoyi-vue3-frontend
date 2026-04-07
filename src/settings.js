@@ -23,7 +23,7 @@ export default {
    * 是否显示 tagsView
    */
   tagsView: true,
-  
+
   /**
    * 显示页签图标
    */
@@ -52,6 +52,11 @@ export default {
   /**
    * 底部版权文本内容
    */
-  footerContent: 'Copyright © 2018-2026 安众道科技智能有限公司. All Rights Reserved.'
+  footerContent: 'Copyright © 2018-2026 安众道科技智能有限公司. All Rights Reserved.',
+
+  /**
+   * 布局配置版本号 - 用于迁移旧缓存配置
+   */
+  layoutVersion: 2
 }
 

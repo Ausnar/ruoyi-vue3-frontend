@@ -83,7 +83,7 @@ const activeMenu = computed(() => {
 
     .el-menu-item, .el-sub-menu__title {
       &:hover {
-        background-color: #F1F5F9 !important;
+        background-color: var(--menu-hover) !important;
       }
     }
 
@@ -95,12 +95,12 @@ const activeMenu = computed(() => {
       padding-right: 16px !important;
 
       &.is-active {
-        color: #3B82F6 !important;
+        color: var(--menu-active-text) !important;
         background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05)) !important;
         font-weight: 600;
 
         .svg-icon {
-          color: #3B82F6;
+          color: var(--menu-active-text);
         }
       }
     }

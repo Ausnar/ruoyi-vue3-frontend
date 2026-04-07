@@ -173,7 +173,8 @@ function saveSetting() {
     "dynamicTitle": storeSettings.value.dynamicTitle,
     "footerVisible": storeSettings.value.footerVisible,
     "sideTheme": storeSettings.value.sideTheme,
-    "theme": storeSettings.value.theme
+    "theme": storeSettings.value.theme,
+    "layoutVersion": storeSettings.value.layoutVersion || 2
   }
   localStorage.setItem("layout-setting", JSON.stringify(layoutSetting))
   setTimeout(proxy.$modal.closeLoading(), 1000)

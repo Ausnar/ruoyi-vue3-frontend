@@ -105,25 +105,25 @@
             <!-- 地图图例 -->
             <div class="map-legend" v-if="mapMode === 'dept'">
               <div class="legend-item">
-                <span class="legend-marker" style="background: #409EFF;"></span>
+                <span class="legend-marker legend-marker--primary"></span>
                 <span class="legend-text">合同单位</span>
               </div>
             </div>
             <div class="map-legend" v-else>
               <div class="legend-item">
-                <span class="legend-marker" style="background: #67C23A;"></span>
+                <span class="legend-marker legend-marker--success"></span>
                 <span class="legend-text">正常</span>
               </div>
               <div class="legend-item">
-                <span class="legend-marker" style="background: #E6A23C;"></span>
+                <span class="legend-marker legend-marker--warning"></span>
                 <span class="legend-text">预警</span>
               </div>
               <div class="legend-item">
-                <span class="legend-marker" style="background: #F56C6C;"></span>
+                <span class="legend-marker legend-marker--danger"></span>
                 <span class="legend-text">过期</span>
               </div>
               <div class="legend-item">
-                <span class="legend-marker" style="background: #909399;"></span>
+                <span class="legend-marker legend-marker--info"></span>
                 <span class="legend-text">低电量</span>
               </div>
             </div>
@@ -179,6 +179,25 @@ import { listDept } from '@/api/system/dept'
 import { listExtinguisher } from '@/api/manage/extinguisher'
 import { listSensor } from '@/api/manage/sensor'
 import { listPoint } from '@/api/manage/point'
+
+// 地图弹窗样式常量 - 统一管理弹窗颜色
+const POPUP_STYLES = {
+  container: 'padding:16px;min-width:300px;',
+  title: 'font-weight:600;margin-bottom:12px;font-size:16px;color:var(--color-text-primary);border-bottom:1px solid var(--color-border-light);padding-bottom:10px;',
+  label: 'font-size:13px;color:var(--color-text-regular);margin-bottom:6px;',
+  labelSecondary: 'color:var(--color-text-secondary);',
+  statsBox: 'background:var(--color-bg-page);border-radius:8px;padding:12px;',
+  statsTitle: 'font-size:14px;font-weight:500;color:var(--color-text-primary);margin-bottom:10px;',
+  statsValue: 'font-size:20px;font-weight:600;',
+  statsLabel: 'color:var(--color-text-secondary);',
+  primaryBtn: 'background:var(--color-primary);color:#fff;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:14px;',
+  secondaryBtn: 'background:var(--color-info);color:#fff;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:14px;',
+  // 状态颜色
+  statusPrimary: 'color:var(--color-primary);',
+  statusSuccess: 'color:var(--color-success);',
+  statusWarning: 'color:var(--color-warning);',
+  statusDanger: 'color:var(--color-danger);'
+}
 
 export default {
   name: 'FireDashboard',
@@ -618,27 +637,27 @@ export default {
     // 构建部门信息窗口内容
     _buildDeptInfoContent(props) {
       return `
-        <div style="padding:16px;min-width:300px;">
-          <div style="font-weight:600;margin-bottom:12px;font-size:16px;color:#303133;border-bottom:1px solid #eee;padding-bottom:10px;">
+        <div style="${POPUP_STYLES.container}">
+          <div style="${POPUP_STYLES.title}">
             ${props.title}
           </div>
           <div style="margin-bottom:16px;">
-            <div style="font-size:13px;color:#606266;margin-bottom:6px;">
-              <span style="color:#909399;">位置：</span>${props.info || '-'}
+            <div style="${POPUP_STYLES.label}">
+              <span style="${POPUP_STYLES.labelSecondary}">位置：</span>${props.info || '-'}
             </div>
-            <div style="font-size:13px;color:#606266;margin-bottom:6px;">
-              <span style="color:#909399;">负责人：</span>${props.leader || '-'}
+            <div style="${POPUP_STYLES.label}">
+              <span style="${POPUP_STYLES.labelSecondary}">负责人：</span>${props.leader || '-'}
             </div>
-            <div style="font-size:13px;color:#606266;margin-bottom:6px;">
-              <span style="color:#909399;">联系电话：</span>${props.phone || '-'}
+            <div style="${POPUP_STYLES.label}">
+              <span style="${POPUP_STYLES.labelSecondary}">联系电话：</span>${props.phone || '-'}
             </div>
-            <div style="font-size:13px;color:#606266;margin-bottom:6px;">
-              <span style="color:#909399;">消防点数量：</span>${props.firePointCount || 0} 个
+            <div style="${POPUP_STYLES.label}">
+              <span style="${POPUP_STYLES.labelSecondary}">消防点数量：</span>${props.firePointCount || 0} 个
             </div>
           </div>
           ${props.firePointCount > 0 ? `
-          <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid #eee;">
-            <button id="view-devices-btn" style="background:#409EFF;color:#fff;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:14px;">查看设备分布</button>
+          <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--color-border-light);">
+            <button id="view-devices-btn" style="${POPUP_STYLES.primaryBtn}">查看设备分布</button>
           </div>
           ` : ''}
         </div>`
@@ -670,51 +689,51 @@ export default {
       const extExpired = pointExtinguishers.filter(ext => ext.status === '2').length
 
       return `
-        <div style="padding:16px;min-width:300px;">
-          <div style="font-weight:600;margin-bottom:12px;font-size:16px;color:#303133;border-bottom:1px solid #eee;padding-bottom:10px;">
+        <div style="${POPUP_STYLES.container}">
+          <div style="${POPUP_STYLES.title}">
             ${props.title}
           </div>
           <div style="margin-bottom:16px;">
-            <div style="font-size:13px;color:#606266;margin-bottom:6px;">
-              <span style="color:#909399;">位置：</span>${firePoint?.location || '-'} ${firePoint?.building ? firePoint.building + '栋' : ''} ${firePoint?.floor ? firePoint.floor + '层' : ''}
+            <div style="${POPUP_STYLES.label}">
+              <span style="${POPUP_STYLES.labelSecondary}">位置：</span>${firePoint?.location || '-'} ${firePoint?.building ? firePoint.building + '栋' : ''} ${firePoint?.floor ? firePoint.floor + '层' : ''}
             </div>
-            <div style="font-size:13px;color:#606266;margin-bottom:6px;">
-              <span style="color:#909399;">所属部门：</span>${firePoint?.deptName || '-'}
+            <div style="${POPUP_STYLES.label}">
+              <span style="${POPUP_STYLES.labelSecondary}">所属部门：</span>${firePoint?.deptName || '-'}
             </div>
-            <div style="font-size:13px;color:#606266;margin-bottom:6px;">
-              <span style="color:#909399;">负责人：</span>${firePoint?.contactPerson || '-'} ${firePoint?.contactPhone ? '(' + firePoint.contactPhone + ')' : ''}
+            <div style="${POPUP_STYLES.label}">
+              <span style="${POPUP_STYLES.labelSecondary}">负责人：</span>${firePoint?.contactPerson || '-'} ${firePoint?.contactPhone ? '(' + firePoint.contactPhone + ')' : ''}
             </div>
           </div>
 
-          <div style="background:#f5f7fa;border-radius:8px;padding:12px;">
-            <div style="font-size:14px;font-weight:500;color:#303133;margin-bottom:10px;">灭火器统计</div>
+          <div style="${POPUP_STYLES.statsBox}">
+            <div style="${POPUP_STYLES.statsTitle}">灭火器统计</div>
             <div style="display:flex;gap:12px;font-size:13px;">
               <div style="flex:1;text-align:center;">
-                <div style="font-size:20px;font-weight:600;color:#409EFF;">${pointExtinguishers.length}</div>
-                <div style="color:#909399;">总数</div>
+                <div style="${POPUP_STYLES.statsValue} ${POPUP_STYLES.statusPrimary}">${pointExtinguishers.length}</div>
+                <div style="${POPUP_STYLES.statsLabel}">总数</div>
               </div>
               <div style="flex:1;text-align:center;">
-                <div style="font-size:20px;font-weight:600;color:#67C23A;">${extNormal}</div>
-                <div style="color:#909399;">正常</div>
+                <div style="${POPUP_STYLES.statsValue} ${POPUP_STYLES.statusSuccess}">${extNormal}</div>
+                <div style="${POPUP_STYLES.statsLabel}">正常</div>
               </div>
               <div style="flex:1;text-align:center;">
-                <div style="font-size:20px;font-weight:600;color:#E6A23C;">${extWarning}</div>
-                <div style="color:#909399;">待检</div>
+                <div style="${POPUP_STYLES.statsValue} ${POPUP_STYLES.statusWarning}">${extWarning}</div>
+                <div style="${POPUP_STYLES.statsLabel}">待检</div>
               </div>
               <div style="flex:1;text-align:center;">
-                <div style="font-size:20px;font-weight:600;color:#F56C6C;">${extExpired}</div>
-                <div style="color:#909399;">过期</div>
+                <div style="${POPUP_STYLES.statsValue} ${POPUP_STYLES.statusDanger}">${extExpired}</div>
+                <div style="${POPUP_STYLES.statsLabel}">过期</div>
               </div>
             </div>
           </div>
 
-          <div style="margin-top:12px;padding-top:12px;border-top:1px solid #eee;">
-            <div style="font-size:13px;color:#909399;">
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--color-border-light);">
+            <div style="${POPUP_STYLES.label}">
               传感器数量：${uniqueSensors.length} 个
             </div>
           </div>
-          <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid #eee;">
-            <button id="back-to-dept-btn" style="background:#909399;color:#fff;border:none;padding:8px 20px;border-radius:4px;cursor:pointer;font-size:14px;">返回合同单位</button>
+          <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--color-border-light);">
+            <button id="back-to-dept-btn" style="${POPUP_STYLES.secondaryBtn}">返回合同单位</button>
           </div>
         </div>`
     },
@@ -1207,6 +1226,12 @@ export default {
       border-radius: 50%;
       border: 2px solid var(--color-bg-card);
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+
+      &--primary { background: var(--color-primary); }
+      &--success { background: var(--color-success); }
+      &--warning { background: var(--color-warning); }
+      &--danger { background: var(--color-danger); }
+      &--info { background: var(--color-info); }
     }
 
     .legend-text {
