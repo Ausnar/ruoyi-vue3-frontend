@@ -24,8 +24,9 @@
     left: 0;
     z-index: 1001;
     overflow: hidden;
-    -webkit-box-shadow: 2px 0 6px rgba(0,21,41,.35);
-    box-shadow: 0px 0px 8px 0px rgba(0, 0, 0, 0.1);
+    background: var(--sidebar-bg, #FFFFFF);
+    border-right: 1px solid var(--card-border, #E2E8F0);
+    box-shadow: none;
 
     // reset element-ui css
     .horizontal-collapse-transition {
@@ -80,11 +81,11 @@
       display: inline-block !important;
     }
 
-    // menu hover
+    // menu hover - 蓝白系
     .sub-menu-title-noDropdown,
     .el-sub-menu__title {
       &:hover {
-        background-color: rgba(0, 0, 0, 0.06) !important;
+        background-color: #F1F5F9 !important;
       }
     }
 
@@ -97,7 +98,7 @@
       min-width: vars.$base-sidebar-width !important;
 
       &:hover {
-        background-color: rgba(0, 0, 0, 0.06) !important;
+        background-color: #F1F5F9 !important;
       }
     }
 
@@ -213,7 +214,7 @@
   .el-menu-item {
     &:hover {
       // you can use $sub-menuHover
-      background-color: rgba(0, 0, 0, 0.06) !important;
+      background-color: #F1F5F9 !important;
     }
   }
 
@@ -223,7 +224,7 @@
     overflow-y: auto;
 
     &::-webkit-scrollbar-track-piece {
-      background: #d3dce6;
+      background: var(--color-bg-page);
     }
 
     &::-webkit-scrollbar {
@@ -231,7 +232,7 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #99a9bf;
+      background: var(--color-border-lighter);
       border-radius: 20px;
     }
   }

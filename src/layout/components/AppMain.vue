@@ -42,6 +42,7 @@ function addIframe() {
   width: 100%;
   position: relative;
   overflow: hidden;
+  background: var(--workspace-bg, linear-gradient(180deg, #F0F7FF 0%, #FFFFFF 100%));
 }
 
 .fixed-header + .app-main {
@@ -113,11 +114,11 @@ function addIframe() {
 }
 
 ::-webkit-scrollbar-track {
-  background-color: #f1f1f1;
+  background-color: var(--color-bg-page);
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #c0c0c0;
+  background-color: var(--color-border-lighter);
   border-radius: 3px;
 }
 </style>

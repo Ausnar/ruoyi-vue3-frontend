@@ -291,9 +291,9 @@ function handleScroll() {
       }
 
       &.active {
-        background-color: #42b983;
+        background-color: var(--menu-active-text, #3B82F6);
         color: #fff;
-        border-color: #42b983;
+        border-color: var(--menu-active-text, #3B82F6);
 
         &::before {
           content: '';

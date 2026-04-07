@@ -71,7 +71,7 @@ const activeMenu = computed(() => {
 <style lang="scss" scoped>
 .sidebar-container {
   background-color: v-bind(getMenuBackground);
-  
+
   .scrollbar-wrapper {
     background-color: v-bind(getMenuBackground);
   }
@@ -80,24 +80,37 @@ const activeMenu = computed(() => {
     border: none;
     height: 100%;
     width: 100% !important;
-    
+
     .el-menu-item, .el-sub-menu__title {
       &:hover {
-        background-color: var(--menu-hover, rgba(0, 0, 0, 0.06)) !important;
+        background-color: #F1F5F9 !important;
       }
     }
 
     .el-menu-item {
       color: v-bind(getMenuTextColor);
-      
+      border-radius: 8px;
+      margin: 4px 8px;
+      padding-left: 16px !important;
+      padding-right: 16px !important;
+
       &.is-active {
-        color: var(--menu-active-text, #409eff);
-        background-color: var(--menu-hover, rgba(0, 0, 0, 0.06)) !important;
+        color: #3B82F6 !important;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05)) !important;
+        font-weight: 600;
+
+        .svg-icon {
+          color: #3B82F6;
+        }
       }
     }
 
     .el-sub-menu__title {
       color: v-bind(getMenuTextColor);
+      border-radius: 8px;
+      margin: 4px 8px;
+      padding-left: 16px !important;
+      padding-right: 16px !important;
     }
   }
 }
