@@ -125,7 +125,16 @@
       <el-table-column label="传感器ID" align="center" prop="sensorId" />
       <el-table-column label="传感器编号" align="center" prop="sensorCode" />
       <!-- 关联sys_dept -->
-      <el-table-column label="所属部门" align="center" prop="deptName" />
+      <el-table-column label="外部单位" align="center" prop="externalCompanyName" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <span>{{ scope.row.externalCompanyName || '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="归属单位" align="center" prop="deptName" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <span>{{ scope.row.deptName || '-' }}</span>
+        </template>
+      </el-table-column>
       <el-table-column label="网关编号" align="center" prop="gatewayCode" />
       <el-table-column label="压力值(MPa)" align="center" prop="pressure" />
       <el-table-column label="温度值(℃)" align="center" prop="temperature" />

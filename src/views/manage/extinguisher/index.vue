@@ -69,36 +69,40 @@
         />
       </el-form-item>
       <el-form-item label="生产日期" prop="productionDate">
-        <el-date-picker clearable
+        <el-date-picker
           v-model="queryParams.productionDate"
+          clearable
           type="date"
           value-format="YYYY-MM-DD"
-          placeholder="请选择生产日期">
-        </el-date-picker>
+          placeholder="请选择生产日期"
+        />
       </el-form-item>
       <el-form-item label="检验日期" prop="inspectionDate">
-        <el-date-picker clearable
+        <el-date-picker
           v-model="queryParams.inspectionDate"
+          clearable
           type="date"
           value-format="YYYY-MM-DD"
-          placeholder="请选择检验日期">
-        </el-date-picker>
+          placeholder="请选择检验日期"
+        />
       </el-form-item>
       <el-form-item label="有效期至" prop="expiryDate">
-        <el-date-picker clearable
+        <el-date-picker
           v-model="queryParams.expiryDate"
+          clearable
           type="date"
           value-format="YYYY-MM-DD"
-          placeholder="请选择有效期至">
-        </el-date-picker>
+          placeholder="请选择有效期至"
+        />
       </el-form-item>
       <el-form-item label="报废日期" prop="scrapDate">
-        <el-date-picker clearable
+        <el-date-picker
           v-model="queryParams.scrapDate"
+          clearable
           type="date"
           value-format="YYYY-MM-DD"
-          placeholder="请选择报废日期">
-        </el-date-picker>
+          placeholder="请选择报废日期"
+        />
       </el-form-item>
       <el-form-item label="消防点ID" prop="firePointId">
         <el-input
@@ -174,13 +178,21 @@
 
     <el-table v-loading="loading" :data="extinguisherList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
+      <el-table-column label="外部单位" align="center" prop="externalCompanyName" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <span>{{ scope.row.externalCompanyName || '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="归属单位" align="center" prop="deptName" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <span>{{ scope.row.deptName || '-' }}</span>
+        </template>
+      </el-table-column>
       <el-table-column label="灭火器ID" align="center" prop="extinguisherId" />
       <el-table-column label="标志明码" align="center" prop="labelCode" />
       <el-table-column label="规格型号" align="center" prop="specification" />
       <el-table-column label="传感器ID" align="center" prop="sensorId" />
       <el-table-column label="传感器编号" align="center" prop="sensorCode" />
-      <!-- 关联sys_dept -->
-      <el-table-column label="所属部门" align="center" prop="deptName" />
       <el-table-column label="产品名称" align="center" prop="productName" />
       <el-table-column label="生产厂家" align="center" prop="manufacturer" />
       <el-table-column label="服务商" align="center" prop="serviceProvider" />
@@ -207,7 +219,7 @@
       <el-table-column label="消防点ID" align="center" prop="firePointId" />
       <el-table-column label="安装位置" align="center" prop="installLocation" />
       <el-table-column label="二维码" align="center" prop="qrCode" />
-      <el-table-column label="状态(0正常 1待检 2过期 3停用 4报废)" align="center" prop="status" />
+      <el-table-column label="状态" align="center" prop="status" />
       <el-table-column label="备注" align="center" prop="remark" />
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
         <template #default="scope">
@@ -216,20 +228,19 @@
         </template>
       </el-table-column>
     </el-table>
-    
+
     <pagination
-      v-show="total>0"
+      v-show="total > 0"
       :total="total"
       v-model:page="queryParams.pageNum"
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
     />
 
-    <!-- 添加或修改灭火器信息对话框 -->
     <el-dialog :title="title" v-model="open" width="500px" append-to-body>
-      <el-form ref="extinguisherRef" :model="form" :rules="rules" label-width="80px">
-        <el-form-item label="标志铭码(唯一标识)" prop="labelCode">
-          <el-input v-model="form.labelCode" placeholder="请输入标志铭码(唯一标识)" />
+      <el-form ref="extinguisherRef" :model="form" :rules="rules" label-width="88px">
+        <el-form-item label="标志明码" prop="labelCode">
+          <el-input v-model="form.labelCode" placeholder="请输入标志明码" />
         </el-form-item>
         <el-form-item label="规格型号" prop="specification">
           <el-input v-model="form.specification" placeholder="请输入规格型号" />
@@ -261,36 +272,40 @@
           <el-input v-model="form.serviceProvider" placeholder="请输入服务商" />
         </el-form-item>
         <el-form-item label="生产日期" prop="productionDate">
-          <el-date-picker clearable
+          <el-date-picker
             v-model="form.productionDate"
+            clearable
             type="date"
             value-format="YYYY-MM-DD"
-            placeholder="请选择生产日期">
-          </el-date-picker>
+            placeholder="请选择生产日期"
+          />
         </el-form-item>
         <el-form-item label="检验日期" prop="inspectionDate">
-          <el-date-picker clearable
+          <el-date-picker
             v-model="form.inspectionDate"
+            clearable
             type="date"
             value-format="YYYY-MM-DD"
-            placeholder="请选择检验日期">
-          </el-date-picker>
+            placeholder="请选择检验日期"
+          />
         </el-form-item>
         <el-form-item label="有效期至" prop="expiryDate">
-          <el-date-picker clearable
+          <el-date-picker
             v-model="form.expiryDate"
+            clearable
             type="date"
             value-format="YYYY-MM-DD"
-            placeholder="请选择有效期至">
-          </el-date-picker>
+            placeholder="请选择有效期至"
+          />
         </el-form-item>
         <el-form-item label="报废日期" prop="scrapDate">
-          <el-date-picker clearable
+          <el-date-picker
             v-model="form.scrapDate"
+            clearable
             type="date"
             value-format="YYYY-MM-DD"
-            placeholder="请选择报废日期">
-          </el-date-picker>
+            placeholder="请选择报废日期"
+          />
         </el-form-item>
         <el-form-item label="消防点ID" prop="firePointId">
           <el-input v-model="form.firePointId" placeholder="请输入消防点ID" />
@@ -302,22 +317,21 @@
           <el-input v-model="form.qrCode" placeholder="请输入二维码" />
         </el-form-item>
         <el-form-item label="备注" prop="remark">
-          <el-input v-model="form.remark" type="textarea" placeholder="请输入内容" />
+          <el-input v-model="form.remark" type="textarea" placeholder="请输入备注" />
         </el-form-item>
-        <el-form-item label="删除标志(0存在 2删除)" prop="delFlag">
-          <el-input v-model="form.delFlag" placeholder="请输入删除标志(0存在 2删除)" />
+        <el-form-item label="删除标志" prop="delFlag">
+          <el-input v-model="form.delFlag" placeholder="请输入删除标志" />
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
-          <el-button type="primary" @click="submitForm">确 定</el-button>
-          <el-button @click="cancel">取 消</el-button>
+          <el-button type="primary" @click="submitForm">确定</el-button>
+          <el-button @click="cancel">取消</el-button>
         </div>
       </template>
     </el-dialog>
   </div>
 </template>
-
 <script setup name="Extinguisher">
 import { listExtinguisher, getExtinguisher, delExtinguisher, addExtinguisher, updateExtinguisher } from "@/api/manage/extinguisher"
 import { deptTreeSelect } from "@/api/system/user"
@@ -359,7 +373,7 @@ const data = reactive({
   },
   rules: {
     labelCode: [
-      { required: true, message: "标志铭码(唯一标识)不能为空", trigger: "blur" }
+      { required: true, message: "标志明码(唯一标识)不能为空", trigger: "blur" }
     ],
   }
 })
@@ -442,7 +456,7 @@ function handleSelectionChange(selection) {
 function handleAdd() {
   reset()
   open.value = true
-  title.value = "添加灭火器信息"
+  title.value = "新增灭火器信息"
 }
 
 /** 修改按钮操作 */

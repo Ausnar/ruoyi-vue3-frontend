@@ -155,7 +155,16 @@
       <el-table-column label="消防点编号" align="center" prop="firePointCode" />
       <el-table-column label="消防点名称" align="center" prop="firePointName" />
       <!-- 关联sys_dept -->
-      <el-table-column label="所属部门" align="center" prop="deptName" />
+      <el-table-column label="外部单位" align="center" prop="externalCompanyName" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <span>{{ scope.row.externalCompanyName || '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="归属单位" align="center" prop="deptName" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <span>{{ scope.row.deptName || '-' }}</span>
+        </template>
+      </el-table-column>
       <!-- 室内/室外/重点区域等 -->
       <el-table-column label="类型" align="center" prop="pointType" />
       <el-table-column label="位置描述" align="center" prop="location" />

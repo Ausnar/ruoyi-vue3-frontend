@@ -177,6 +177,7 @@
 import { listContract } from '@/api/system/contract'
 import { listDept } from '@/api/system/dept'
 import { listExtinguisher } from '@/api/manage/extinguisher'
+import { listGateway } from '@/api/manage/gateway'
 import { listSensor } from '@/api/manage/sensor'
 import { listPoint } from '@/api/manage/point'
 
@@ -197,6 +198,11 @@ const POPUP_STYLES = {
   statusSuccess: 'color:var(--color-success);',
   statusWarning: 'color:var(--color-warning);',
   statusDanger: 'color:var(--color-danger);'
+}
+
+const DASHBOARD_DEVICE_QUERY = {
+  pageNum: 1,
+  pageSize: 1000
 }
 
 export default {
@@ -221,6 +227,7 @@ export default {
       // 设备数据
       firePoints: [],
       extinguishers: [],
+      gateways: [],
       sensors: [],
       productLocations: [], // 用于地图标记的数据
       // 部门数据（用于地图合同单位显示）
@@ -315,15 +322,22 @@ export default {
       })
 
       // 使用API获取灭火器数据（用于地图显示）
-      listExtinguisher({}).then(response => {
+listExtinguisher(DASHBOARD_DEVICE_QUERY).then(response => {
         this.extinguishers = response.rows || []
         this.updateProductLocations()
       }).catch(error => {
         console.error('获取灭火器数据失败：', error)
       })
 
+      listGateway(DASHBOARD_DEVICE_QUERY).then(response => {
+        this.gateways = response.rows || []
+        this.updateProductLocations()
+      }).catch(error => {
+        console.error('获取网关数据失败：', error)
+      })
+
       // 使用API获取传感器数据（用于地图显示）
-      listSensor({}).then(response => {
+listSensor(DASHBOARD_DEVICE_QUERY).then(response => {
         this.sensors = response.rows || []
         this.updateProductLocations()
       }).catch(error => {
@@ -331,7 +345,7 @@ export default {
       })
 
       // 使用API获取消防点数据（用于地图显示）
-      listPoint({}).then(response => {
+listPoint(DASHBOARD_DEVICE_QUERY).then(response => {
         this.firePoints = response.rows || []
         this.updateProductLocations()
         // 消防点加载完成后更新部门标记（用于显示消防点数量）
@@ -355,31 +369,17 @@ export default {
 
       // 生成地图标记数据，使用消防点的坐标
       const newProductLocations = this.firePoints.map(point => {
-        // 查找与消防点关联的灭火器 (类型转换确保比较正确)
-        const pointExtinguishers = this.extinguishers.filter(
-          ext => Number(ext.firePointId) === Number(point.firePointId)
-        )
-
-        // 查找与消防点关联的传感器（通过灭火器间接关联）
-        const pointSensors = []
-        pointExtinguishers.forEach(ext => {
-          // 通过灭火器的 sensorId 或 sensorCode 查找关联的传感器
-          const relatedSensors = this.sensors.filter(
-            sensor => Number(sensor.sensorId) === Number(ext.sensorId) || sensor.sensorCode === ext.sensorCode
-          )
-          pointSensors.push(...relatedSensors)
-        })
-
-        // 去重
-        const uniqueSensors = [...new Map(pointSensors.map(item => [item.sensorId, item])).values()]
+        const pointGateways = this.getPointGateways(point.firePointId)
+        const pointSensors = this.getPointSensors(point.firePointId, pointGateways)
+        const pointExtinguishers = this.getPointExtinguishers(point.firePointId, pointSensors)
 
         // 确定消防点状态（根据关联设备的状态）
         let status = 'normal'
         if (pointExtinguishers.some(ext => ext.status === '2')) {
           status = 'expired' // 过期
-        } else if (uniqueSensors.some(sensor => sensor.status === '1')) {
+        } else if (pointSensors.some(sensor => sensor.status === '1')) {
           status = 'warning' // 预警
-        } else if (uniqueSensors.some(sensor => sensor.status === '2')) {
+        } else if (pointSensors.some(sensor => sensor.status === '2')) {
           status = 'lowbat' // 低电量
         }
 
@@ -390,8 +390,9 @@ export default {
           lng: parseFloat(point.longitude) || 0,
           status: status,
           info: point.location || point.firePointName,
+          gateways: pointGateways,
           extinguishers: pointExtinguishers,
-          sensors: uniqueSensors
+          sensors: pointSensors
         }
       }).filter(location => location.lat && location.lng) // 过滤掉没有坐标的消防点
 
@@ -405,6 +406,30 @@ export default {
           this.updateMapMarkers()
         }
       }
+    },
+
+    getPointGateways(firePointId) {
+      return this.gateways.filter(gateway => Number(gateway.firePointId) === Number(firePointId))
+    },
+
+    getPointSensors(firePointId, pointGateways = null) {
+      const gateways = pointGateways || this.getPointGateways(firePointId)
+      const gatewayIds = new Set(gateways.map(gateway => Number(gateway.gatewayId)).filter(Boolean))
+      const pointSensors = this.sensors.filter(sensor => gatewayIds.has(Number(sensor.gatewayId)))
+      return [...new Map(pointSensors.map(item => [item.sensorId, item])).values()]
+    },
+
+    getPointExtinguishers(firePointId, pointSensors = null) {
+      const sensors = pointSensors || this.getPointSensors(firePointId)
+      const sensorIds = new Set(sensors.map(sensor => Number(sensor.sensorId)).filter(Boolean))
+      const sensorCodes = new Set(sensors.map(sensor => sensor.sensorCode).filter(Boolean))
+      const pointExtinguishers = this.extinguishers.filter(ext => {
+        const matchedByFirePoint = Number(ext.firePointId) === Number(firePointId)
+        const matchedBySensor = sensorIds.has(Number(ext.sensorId))
+        const matchedBySensorCode = sensorCodes.has(ext.sensorCode)
+        return matchedByFirePoint || matchedBySensor || matchedBySensorCode
+      })
+      return [...new Map(pointExtinguishers.map(item => [item.extinguisherId, item])).values()]
     },
 
     // 更新部门标记（合同单位）
@@ -665,20 +690,9 @@ export default {
 
     // 构建设备信息窗口内容
     _buildDeviceInfoContent(props) {
-      // 查找与消防点关联的灭火器
-      const pointExtinguishers = this.extinguishers.filter(
-        ext => Number(ext.firePointId) === Number(props.id)
-      )
-
-      // 查找与消防点关联的传感器
-      const pointSensors = []
-      pointExtinguishers.forEach(ext => {
-        const relatedSensors = this.sensors.filter(
-          sensor => Number(sensor.sensorId) === Number(ext.sensorId) || sensor.sensorCode === ext.sensorCode
-        )
-        pointSensors.push(...relatedSensors)
-      })
-      const uniqueSensors = [...new Map(pointSensors.map(item => [item.sensorId, item])).values()]
+      const pointGateways = this.getPointGateways(props.id)
+      const pointSensors = this.getPointSensors(props.id, pointGateways)
+      const pointExtinguishers = this.getPointExtinguishers(props.id, pointSensors)
 
       // 查找消防点详情
       const firePoint = this.firePoints.find(fp => Number(fp.firePointId) === Number(props.id))
@@ -698,7 +712,10 @@ export default {
               <span style="${POPUP_STYLES.labelSecondary}">位置：</span>${firePoint?.location || '-'} ${firePoint?.building ? firePoint.building + '栋' : ''} ${firePoint?.floor ? firePoint.floor + '层' : ''}
             </div>
             <div style="${POPUP_STYLES.label}">
-              <span style="${POPUP_STYLES.labelSecondary}">所属部门：</span>${firePoint?.deptName || '-'}
+              <span style="${POPUP_STYLES.labelSecondary}">外部单位：</span>${firePoint?.externalCompanyName || '-'}
+            </div>
+            <div style="${POPUP_STYLES.label}">
+              <span style="${POPUP_STYLES.labelSecondary}">归属单位：</span>${firePoint?.deptName || '-'}
             </div>
             <div style="${POPUP_STYLES.label}">
               <span style="${POPUP_STYLES.labelSecondary}">负责人：</span>${firePoint?.contactPerson || '-'} ${firePoint?.contactPhone ? '(' + firePoint.contactPhone + ')' : ''}
@@ -729,7 +746,10 @@ export default {
 
           <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--color-border-light);">
             <div style="${POPUP_STYLES.label}">
-              传感器数量：${uniqueSensors.length} 个
+              网关数量：${pointGateways.length} 个
+            </div>
+            <div style="${POPUP_STYLES.label}">
+              传感器数量：${pointSensors.length} 个
             </div>
           </div>
           <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--color-border-light);">
