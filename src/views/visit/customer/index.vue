@@ -38,6 +38,8 @@
       <el-table-column label="联系电话" align="center" prop="contactPhone" min-width="140" />
       <el-table-column label="归属部门" align="center" prop="deptName" min-width="160" show-overflow-tooltip />
       <el-table-column label="地址" align="center" prop="address" min-width="220" show-overflow-tooltip />
+      <el-table-column label="经度" align="center" prop="longitude" width="140" />
+      <el-table-column label="纬度" align="center" prop="latitude" width="140" />
       <el-table-column label="状态" align="center" prop="status" width="100">
         <template #default="scope">
           <dict-tag :options="sys_normal_disable" :value="scope.row.status" />
@@ -77,6 +79,12 @@
         </el-form-item>
         <el-form-item label="客户地址" prop="address">
           <el-input v-model="form.address" placeholder="请输入客户地址" maxlength="255" />
+        </el-form-item>
+        <el-form-item label="经度" prop="longitude">
+          <el-input v-model="form.longitude" placeholder="请输入经度" maxlength="20" />
+        </el-form-item>
+        <el-form-item label="纬度" prop="latitude">
+          <el-input v-model="form.latitude" placeholder="请输入纬度" maxlength="20" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
@@ -124,7 +132,9 @@ const data = reactive({
   },
   rules: {
     customerName: [{ required: true, message: '请输入客户名称', trigger: 'blur' }],
-    status: [{ required: true, message: '请选择状态', trigger: 'change' }]
+    status: [{ required: true, message: '请选择状态', trigger: 'change' }],
+    longitude: [{ pattern: /^-?\d+(\.\d+)?$/, message: '经度格式不正确', trigger: 'blur' }],
+    latitude: [{ pattern: /^-?\d+(\.\d+)?$/, message: '纬度格式不正确', trigger: 'blur' }]
   }
 })
 
@@ -147,6 +157,8 @@ function reset() {
     contactPerson: null,
     contactPhone: null,
     address: null,
+    longitude: null,
+    latitude: null,
     status: '0',
     remark: null
   }

@@ -37,7 +37,21 @@
           <dict-tag :options="fe_visit_customer_type" :value="scope.row.customerType" />
         </template>
       </el-table-column>
-      <el-table-column label="客户名称" align="center" prop="customerNameSnapshot" min-width="180" show-overflow-tooltip />
+      <el-table-column label="拜访模式" align="center" prop="visitMode" width="120">
+        <template #default="scope">
+          <dict-tag :options="fe_visit_mode" :value="scope.row.visitMode" />
+        </template>
+      </el-table-column>
+      <el-table-column label="来源类型" align="center" prop="sourceType" width="160">
+        <template #default="scope">
+          <dict-tag :options="fe_visit_source_type" :value="scope.row.sourceType" />
+        </template>
+      </el-table-column>
+      <el-table-column label="客户名称" align="center" min-width="240" show-overflow-tooltip>
+        <template #default="scope">
+          <span>{{ buildCustomerDisplayName(scope.row) }}</span>
+        </template>
+      </el-table-column>
       <el-table-column label="计划时间" align="center" min-width="320">
         <template #default="scope">
           <span>{{ parseTime(scope.row.plannedStartTime, '{y}-{m}-{d} {h}:{i}:{s}') }} ~ {{ parseTime(scope.row.plannedEndTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
@@ -167,6 +181,17 @@
               <el-input v-model="subjectForm.remark" type="textarea" :rows="2" placeholder="请输入备注" :disabled="subjectReadonly" />
             </el-form-item>
           </el-col>
+          <el-col v-if="subjectMode === 'view' && subjectForm.visitMode === 'passive'" :span="24">
+            <el-alert type="info" :closable="false" show-icon>
+              <template #title>
+                来源：{{ formatDictLabel(fe_visit_source_type, subjectForm.sourceType) || '-' }}，
+                位移：{{ subjectForm.triggerDistanceM || '-' }} m，
+                现场外部单位：{{ subjectForm.triggerExternalCompanyNameSnapshot || '-' }}，
+                起点：{{ buildCoordinate(subjectForm.triggerFromLongitude, subjectForm.triggerFromLatitude) }}，
+                终点：{{ buildCoordinate(subjectForm.triggerToLongitude, subjectForm.triggerToLatitude) }}
+              </template>
+            </el-alert>
+          </el-col>
         </el-row>
       </el-form>
 
@@ -200,7 +225,10 @@
     <el-dialog title="结果回填" v-model="feedbackOpen" width="760px" append-to-body>
       <el-descriptions :column="2" border style="margin-bottom: 16px">
         <el-descriptions-item label="拜访单号">{{ feedbackBase.visitNo }}</el-descriptions-item>
-        <el-descriptions-item label="客户名称">{{ feedbackBase.customerNameSnapshot }}</el-descriptions-item>
+        <el-descriptions-item label="客户名称">{{ buildCustomerDisplayName(feedbackBase) }}</el-descriptions-item>
+        <el-descriptions-item v-if="feedbackBase.visitMode === 'passive' && feedbackBase.customerType === 'contract'" label="具体外部单位">
+          {{ feedbackBase.triggerExternalCompanyNameSnapshot || '-' }}
+        </el-descriptions-item>
         <el-descriptions-item label="计划时间" :span="2">{{ feedbackPlanTime }}</el-descriptions-item>
         <el-descriptions-item label="拜访事由" :span="2">{{ feedbackBase.visitReason }}</el-descriptions-item>
       </el-descriptions>
@@ -251,11 +279,13 @@ import { listVisitCustomer } from '@/api/visit/customer'
 import { feedbackVisitApply, getVisitApply, getVisitApplyLogs, listContractOptions, listMyVisitApply, resubmitVisitApply, submitVisitApply, withdrawVisitApply } from '@/api/visit/apply'
 
 const { proxy } = getCurrentInstance()
-const { fe_visit_customer_type, fe_visit_apply_status, fe_visit_conclusion, fe_visit_intention_level } = proxy.useDict(
+const { fe_visit_customer_type, fe_visit_apply_status, fe_visit_conclusion, fe_visit_intention_level, fe_visit_mode, fe_visit_source_type } = proxy.useDict(
   'fe_visit_customer_type',
   'fe_visit_apply_status',
   'fe_visit_conclusion',
-  'fe_visit_intention_level'
+  'fe_visit_intention_level',
+  'fe_visit_mode',
+  'fe_visit_source_type'
 )
 
 const applyList = ref([])
@@ -471,11 +501,11 @@ function submitFeedbackForm() {
 }
 
 function canEdit(row) {
-  return ['rejected', 'withdrawn'].includes(row.status)
+  return row.visitMode !== 'passive' && ['rejected', 'withdrawn'].includes(row.status)
 }
 
 function canWithdraw(row) {
-  return row.status === 'pending_approve'
+  return row.visitMode !== 'passive' && row.status === 'pending_approve'
 }
 
 function canFeedback(row) {
@@ -493,6 +523,25 @@ function buildCustomerLabel(item) {
   const contact = item.contactPerson ? ` / 联系人:${item.contactPerson}` : ''
   const phone = item.contactPhone ? ` / 电话:${item.contactPhone}` : ''
   return `${item.customerName}${contact}${phone}`
+}
+
+function buildCustomerDisplayName(row) {
+  if (!row) return '-'
+  const customerName = row.customerNameSnapshot || '-'
+  if (row.visitMode === 'passive' && row.customerType === 'contract' && row.triggerExternalCompanyNameSnapshot) {
+    return `${customerName} / ${row.triggerExternalCompanyNameSnapshot}`
+  }
+  return customerName
+}
+
+function buildCoordinate(longitude, latitude) {
+  if (longitude == null || latitude == null) return '-'
+  return `${longitude}, ${latitude}`
+}
+
+function formatDictLabel(options, value) {
+  const match = options.value?.find(item => item.value === value)
+  return match ? match.label : value
 }
 
 function attachmentJsonToText(value) {
