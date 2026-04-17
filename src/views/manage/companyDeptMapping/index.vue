@@ -164,6 +164,7 @@
 </template>
 
 <script setup name="CompanyDeptMapping">
+import { useRoute } from "vue-router"
 import { deptTreeSelect } from "@/api/system/user"
 import {
   listCompanyDeptMapping,
@@ -175,6 +176,7 @@ import {
 } from "@/api/manage/companyDeptMapping"
 
 const { proxy } = getCurrentInstance()
+const route = useRoute()
 
 const mappingList = ref([])
 const externalCompanyOptions = ref([])
@@ -198,6 +200,7 @@ const data = reactive({
   queryParams: {
     pageNum: 1,
     pageSize: 10,
+    externalCompanyId: null,
     externalCompanyName: null,
     deptId: null,
     syncStatus: null
@@ -340,4 +343,10 @@ function cancel() {
 getList()
 getDeptTree()
 getExternalCompanyOptions()
+
+if (route.query.externalCompanyId) {
+  queryParams.value.externalCompanyId = route.query.externalCompanyId
+  queryParams.value.externalCompanyName = route.query.externalCompanyName || null
+  handleQuery()
+}
 </script>
