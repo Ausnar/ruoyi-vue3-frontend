@@ -28,7 +28,7 @@
 
       <el-dropdown @command="handleCommand" class="avatar-container right-menu-item hover-effect" trigger="hover">
         <div class="avatar-wrapper">
-          <img :src="userStore.avatar" class="user-avatar" />
+          <img :src="avatarSrc" class="user-avatar" @error="handleAvatarError" />
           <span class="user-nickname"> {{ userStore.nickName }} </span>
         </div>
         <template #dropdown>
@@ -62,13 +62,32 @@ import HeaderSearch from '@/components/HeaderSearch'
 import useAppStore from '@/store/modules/app'
 import useUserStore from '@/store/modules/user'
 import useSettingsStore from '@/store/modules/settings'
+import defAva from '@/assets/images/profile.jpg'
 
 const appStore = useAppStore()
 const userStore = useUserStore()
 const settingsStore = useSettingsStore()
+const avatarSrc = ref('')
+
+watch(
+  () => userStore.avatar,
+  (value) => {
+    avatarSrc.value = value || defAva
+  },
+  { immediate: true }
+)
 
 function toggleSideBar() {
   appStore.toggleSideBar()
+}
+
+function handleAvatarError(event) {
+  if (avatarSrc.value !== defAva) {
+    avatarSrc.value = defAva
+  }
+  if (event?.target) {
+    event.target.src = defAva
+  }
 }
 
 function handleCommand(command) {
