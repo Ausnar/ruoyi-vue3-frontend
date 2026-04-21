@@ -1,16 +1,5 @@
 <template>
   <div class="notice-center-page">
-    <section class="notice-hero">
-      <div>
-        <p class="notice-hero__eyebrow">Notice Center</p>
-        <h1>公告中心</h1>
-        <p class="notice-hero__desc">面向全体登录用户展示当前有效公告，支持按标题快速筛选并查看完整详情。</p>
-      </div>
-      <div class="notice-hero__badge">
-        <span>仅展示状态正常的公告</span>
-      </div>
-    </section>
-
     <el-card shadow="never" class="notice-filter-card">
       <el-form :model="queryParams" :inline="true" ref="queryRef">
         <el-form-item label="公告标题" prop="noticeTitle">
@@ -140,56 +129,6 @@ getList()
     linear-gradient(180deg, #f5f9ff 0%, #edf4ff 100%);
 }
 
-.notice-hero {
-  display: flex;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 20px;
-  padding: 28px 32px;
-  border-radius: 24px;
-  background: linear-gradient(135deg, #16324f 0%, #205375 60%, #2d6a8c 100%);
-  color: #fff;
-  box-shadow: 0 20px 50px rgba(22, 50, 79, 0.18);
-}
-
-.notice-hero__eyebrow {
-  margin: 0 0 10px;
-  font-size: 12px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.notice-hero h1 {
-  margin: 0;
-  font-size: 34px;
-  line-height: 1.2;
-}
-
-.notice-hero__desc {
-  max-width: 640px;
-  margin: 12px 0 0;
-  font-size: 15px;
-  line-height: 1.75;
-  color: rgba(255, 255, 255, 0.82);
-}
-
-.notice-hero__badge {
-  display: flex;
-  align-items: flex-start;
-}
-
-.notice-hero__badge span {
-  display: inline-flex;
-  align-items: center;
-  padding: 10px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  font-size: 13px;
-  white-space: nowrap;
-}
-
 .notice-filter-card {
   margin-bottom: 18px;
   border: none;
@@ -257,16 +196,6 @@ getList()
 @media (max-width: 768px) {
   .notice-center-page {
     padding: 16px;
-  }
-
-  .notice-hero {
-    flex-direction: column;
-    padding: 24px 20px;
-    border-radius: 20px;
-  }
-
-  .notice-hero h1 {
-    font-size: 28px;
   }
 
   .notice-card {
