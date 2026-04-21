@@ -83,6 +83,19 @@ export const constantRoutes = [
         meta: { title: '个人中心', icon: 'user' }
       }
     ]
+  },
+  {
+    path: '/notice-center',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: 'detail/:noticeId(\\d+)',
+        component: () => import('@/views/notice/center/detail.vue'),
+        name: 'NoticeCenterDetail',
+        meta: { title: '公告详情', activeMenu: '/noticeCenter' }
+      }
+    ]
   }
 ]
 

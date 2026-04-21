@@ -17,6 +17,23 @@ export function getNotice(noticeId) {
   })
 }
 
+// 查询公告中心列表
+export function listPublishedNotice(query) {
+  return request({
+    url: '/system/notice/published/list',
+    method: 'get',
+    params: query
+  })
+}
+
+// 查询公告中心详情
+export function getPublishedNotice(noticeId) {
+  return request({
+    url: '/system/notice/published/' + noticeId,
+    method: 'get'
+  })
+}
+
 // 新增公告
 export function addNotice(data) {
   return request({
