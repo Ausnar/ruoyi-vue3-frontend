@@ -86,7 +86,7 @@
     <!-- 中间区域 - 地图和近期报警 -->
     <el-row :gutter="20" class="content-row">
       <!-- 左侧 - 腾讯地图 -->
-      <el-col v-if="canViewAlarmCard" :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+      <el-col v-if="canViewMapCard" :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
         <div class="panel-card" :class="{ 'fullscreen-panel': isMapFullscreen }">
           <div class="panel-header">
             <h3 class="panel-title">
@@ -135,7 +135,7 @@
       </el-col>
 
       <!-- 右侧 - 近期报警 -->
-      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+      <el-col v-if="canViewAlarmCard" :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
         <div class="panel-card">
           <div class="panel-header">
             <h3 class="panel-title">
@@ -179,14 +179,12 @@
 <script>
 import { getContractOverview } from '@/api/system/contract'
 import { getDashboardMapHierarchy } from '@/api/manage/dashboardMap'
-import { listExtinguisher } from '@/api/manage/extinguisher'
-import { listGateway } from '@/api/manage/gateway'
-import { listSensor } from '@/api/manage/sensor'
 import useUserStore from '@/store/modules/user'
 
 const DASHBOARD_CARD_PERMISSIONS = {
   contract: ['system:contract:analysis', 'system:contract:list'],
   alarm: ['dashboard:card:alarm'],
+  map: ['dashboard:card:map', 'manage:point:list'],
   maintenance: ['dashboard:card:maintenance']
 }
 
@@ -211,11 +209,6 @@ const POPUP_STYLES = {
   statusSuccess: 'color:var(--color-success);',
   statusWarning: 'color:var(--color-warning);',
   statusDanger: 'color:var(--color-danger);'
-}
-
-const DASHBOARD_DEVICE_QUERY = {
-  pageNum: 1,
-  pageSize: 1000
 }
 
 export default {
@@ -266,6 +259,9 @@ export default {
     canViewAlarmCard() {
       return hasAnyPermission(this.userPermissions, DASHBOARD_CARD_PERMISSIONS.alarm)
     },
+    canViewMapCard() {
+      return hasAnyPermission(this.userPermissions, DASHBOARD_CARD_PERMISSIONS.map)
+    },
     canViewMaintenanceCard() {
       return hasAnyPermission(this.userPermissions, DASHBOARD_CARD_PERMISSIONS.maintenance)
     },
@@ -294,7 +290,9 @@ export default {
       this.updateTime()
       this.loadStatistics()
       this.loadRecentAlarms()
-      this.initTencentMap()
+      if (this.canViewMapCard) {
+        this.initTencentMap()
+      }
 
       this.timeIntervalId = setInterval(() => {
         this.updateTime()
@@ -341,41 +339,24 @@ export default {
         this.stats.contractUserCount = 0
       }
 
-      // 获取部门数据（用于地图显示合同单位）
-      getDashboardMapHierarchy().then(response => {
-        this.mapHierarchy = response.data || { roots: [] }
-        this.firePoints = this.flattenFirePoints(this.mapHierarchy.roots || [])
-        if (this.mapMode === 'parent' || !this.currentMapNode) {
-          this.showParentUnits()
-        } else {
-          this.refreshCurrentMapLevel()
-        }
-      }).catch(error => {
-        console.error('获取地图层级数据失败：', error)
-      })
-
-      // 使用API获取灭火器数据（用于地图显示）
-listExtinguisher(DASHBOARD_DEVICE_QUERY).then(response => {
-        this.extinguishers = response.rows || []
-        this.updateProductLocations()
-      }).catch(error => {
-        console.error('获取灭火器数据失败：', error)
-      })
-
-      listGateway(DASHBOARD_DEVICE_QUERY).then(response => {
-        this.gateways = response.rows || []
-        this.updateProductLocations()
-      }).catch(error => {
-        console.error('获取网关数据失败：', error)
-      })
-
-      // 使用API获取传感器数据（用于地图显示）
-listSensor(DASHBOARD_DEVICE_QUERY).then(response => {
-        this.sensors = response.rows || []
-        this.updateProductLocations()
-      }).catch(error => {
-        console.error('获取传感器数据失败：', error)
-      })
+      if (this.canViewMapCard) {
+        // 获取部门数据（用于地图显示合同单位）
+        getDashboardMapHierarchy().then(response => {
+          this.mapHierarchy = response.data || { roots: [] }
+          this.firePoints = this.flattenFirePoints(this.mapHierarchy.roots || [])
+          if (this.mapMode === 'parent' || !this.currentMapNode) {
+            this.showParentUnits()
+          } else {
+            this.refreshCurrentMapLevel()
+          }
+        }).catch(error => {
+          console.error('获取地图层级数据失败：', error)
+        })
+      } else {
+        this.mapHierarchy = null
+        this.firePoints = []
+        this.setMapLocations([])
+      }
 
       // 其他统计数据暂时使用模拟数据
       this.stats.alarmPending = this.canViewAlarmCard ? 8 : 0
@@ -436,6 +417,12 @@ listSensor(DASHBOARD_DEVICE_QUERY).then(response => {
         childUnitCount: node.childUnitCount || 0,
         firePointCount: node.firePointCount || 0,
         directFirePointCount: node.directFirePointCount || 0,
+        gatewayCount: node.gatewayCount || 0,
+        sensorCount: node.sensorCount || 0,
+        extinguisherCount: node.extinguisherCount || 0,
+        normalExtinguisherCount: node.normalExtinguisherCount || 0,
+        warningExtinguisherCount: node.warningExtinguisherCount || 0,
+        expiredExtinguisherCount: node.expiredExtinguisherCount || 0,
         children: node.children || [],
         firePoints: node.firePoints || [],
         sourceNode: node
@@ -534,6 +521,9 @@ listSensor(DASHBOARD_DEVICE_QUERY).then(response => {
       if (pointExtinguishers.some(ext => ext.status === '2')) return 'expired'
       if (pointSensors.some(sensor => sensor.status === '1')) return 'warning'
       if (pointSensors.some(sensor => sensor.status === '2')) return 'lowbat'
+      if (Number(point.expiredExtinguisherCount || 0) > 0) return 'expired'
+      if (Number(point.warningExtinguisherCount || 0) > 0) return 'warning'
+      if (point.status) return point.status
       return 'normal'
     },
 
@@ -600,7 +590,13 @@ listSensor(DASHBOARD_DEVICE_QUERY).then(response => {
               floor: loc.floor,
               childUnitCount: loc.childUnitCount,
               firePointCount: loc.firePointCount,
-              directFirePointCount: loc.directFirePointCount
+              directFirePointCount: loc.directFirePointCount,
+              gatewayCount: loc.gatewayCount,
+              sensorCount: loc.sensorCount,
+              extinguisherCount: loc.extinguisherCount,
+              normalExtinguisherCount: loc.normalExtinguisherCount,
+              warningExtinguisherCount: loc.warningExtinguisherCount,
+              expiredExtinguisherCount: loc.expiredExtinguisherCount
             }
           }
         })
@@ -770,9 +766,18 @@ listSensor(DASHBOARD_DEVICE_QUERY).then(response => {
       const firePoint = this.firePoints.find(fp => Number(fp.firePointId) === Number(firePointId)) || props
 
       // 统计灭火器各状态数量
-      const extNormal = pointExtinguishers.filter(ext => ext.status === '0').length
-      const extWarning = pointExtinguishers.filter(ext => ext.status === '1').length
-      const extExpired = pointExtinguishers.filter(ext => ext.status === '2').length
+      const extTotal = pointExtinguishers.length || Number(firePoint?.extinguisherCount || props.extinguisherCount || 0)
+      const extNormal = pointExtinguishers.length
+        ? pointExtinguishers.filter(ext => ext.status === '0').length
+        : Number(firePoint?.normalExtinguisherCount || props.normalExtinguisherCount || 0)
+      const extWarning = pointExtinguishers.length
+        ? pointExtinguishers.filter(ext => ext.status === '1').length
+        : Number(firePoint?.warningExtinguisherCount || props.warningExtinguisherCount || 0)
+      const extExpired = pointExtinguishers.length
+        ? pointExtinguishers.filter(ext => ext.status === '2').length
+        : Number(firePoint?.expiredExtinguisherCount || props.expiredExtinguisherCount || 0)
+      const gatewayCount = pointGateways.length || Number(firePoint?.gatewayCount || props.gatewayCount || 0)
+      const sensorCount = pointSensors.length || Number(firePoint?.sensorCount || props.sensorCount || 0)
 
       return `
         <div style="${POPUP_STYLES.container}">
@@ -798,7 +803,7 @@ listSensor(DASHBOARD_DEVICE_QUERY).then(response => {
             <div style="${POPUP_STYLES.statsTitle}">灭火器统计</div>
             <div style="display:flex;gap:12px;font-size:13px;">
               <div style="flex:1;text-align:center;">
-                <div style="${POPUP_STYLES.statsValue} ${POPUP_STYLES.statusPrimary}">${pointExtinguishers.length}</div>
+                <div style="${POPUP_STYLES.statsValue} ${POPUP_STYLES.statusPrimary}">${extTotal}</div>
                 <div style="${POPUP_STYLES.statsLabel}">总数</div>
               </div>
               <div style="flex:1;text-align:center;">
@@ -818,10 +823,10 @@ listSensor(DASHBOARD_DEVICE_QUERY).then(response => {
 
           <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--color-border-light);">
             <div style="${POPUP_STYLES.label}">
-              网关数量：${pointGateways.length} 个
+              网关数量：${gatewayCount} 个
             </div>
             <div style="${POPUP_STYLES.label}">
-              传感器数量：${pointSensors.length} 个
+              传感器数量：${sensorCount} 个
             </div>
           </div>
           <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--color-border-light);">
