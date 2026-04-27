@@ -103,7 +103,7 @@
           <div class="panel-content map-content">
             <div ref="mapContainer" class="map-container"></div>
             <!-- 地图图例 -->
-            <div class="map-legend" v-if="mapMode === 'dept'">
+            <div class="map-legend" v-if="mapMode !== 'firePoint'">
               <div class="legend-item">
                 <span class="legend-marker legend-marker--primary"></span>
                 <span class="legend-text">合同单位</span>
@@ -175,11 +175,10 @@
 
 <script>
 import { listContract } from '@/api/system/contract'
-import { listDept } from '@/api/system/dept'
+import { getDashboardMapHierarchy } from '@/api/manage/dashboardMap'
 import { listExtinguisher } from '@/api/manage/extinguisher'
 import { listGateway } from '@/api/manage/gateway'
 import { listSensor } from '@/api/manage/sensor'
-import { listPoint } from '@/api/manage/point'
 
 // 地图弹窗样式常量 - 统一管理弹窗颜色
 const POPUP_STYLES = {
@@ -231,11 +230,12 @@ export default {
       sensors: [],
       productLocations: [], // 用于地图标记的数据
       // 部门数据（用于地图合同单位显示）
-      deptList: [],
-      // 地图模式：'dept' 显示部门，'device' 显示消防点设备
-      mapMode: 'dept',
+      mapHierarchy: null,
+      // 地图模式：parent 业务根单位，child 下级单位，firePoint 消防点
+      mapMode: 'parent',
       // 当前选中的部门
-      currentDept: null,
+      mapStack: [],
+      currentMapNode: null,
       recentAlarms: [],
       // 定时器
       timeIntervalId: null,
@@ -312,13 +312,16 @@ export default {
       })
 
       // 获取部门数据（用于地图显示合同单位）
-      listDept({}).then(response => {
-        // 过滤有经纬度的部门
-        this.deptList = (response.data || []).filter(dept => dept.longitude && dept.latitude)
-        // 默认显示部门标记
-        this.updateDeptMarkers()
+      getDashboardMapHierarchy().then(response => {
+        this.mapHierarchy = response.data || { roots: [] }
+        this.firePoints = this.flattenFirePoints(this.mapHierarchy.roots || [])
+        if (this.mapMode === 'parent' || !this.currentMapNode) {
+          this.showParentUnits()
+        } else {
+          this.refreshCurrentMapLevel()
+        }
       }).catch(error => {
-        console.error('获取部门数据失败：', error)
+        console.error('获取地图层级数据失败：', error)
       })
 
       // 使用API获取灭火器数据（用于地图显示）
@@ -344,16 +347,6 @@ listSensor(DASHBOARD_DEVICE_QUERY).then(response => {
         console.error('获取传感器数据失败：', error)
       })
 
-      // 使用API获取消防点数据（用于地图显示）
-listPoint(DASHBOARD_DEVICE_QUERY).then(response => {
-        this.firePoints = response.rows || []
-        this.updateProductLocations()
-        // 消防点加载完成后更新部门标记（用于显示消防点数量）
-        this.updateDeptMarkers()
-      }).catch(error => {
-        console.error('获取消防点数据失败：', error)
-      })
-
       // 其他统计数据暂时使用模拟数据
       this.stats.alarmPending = 8
       this.stats.alarmPendingHigh = 2
@@ -362,50 +355,156 @@ listPoint(DASHBOARD_DEVICE_QUERY).then(response => {
     },
 
     updateProductLocations() {
-      // 只有在设备模式下才处理消防点数据
-      if (this.mapMode !== 'device' || !this.firePoints.length) {
+      if (this.mapMode === 'firePoint' && this.currentMapNode) {
+        this.showFirePoints(this.currentMapNode, false)
+      }
+    },
+
+    flattenFirePoints(nodes = []) {
+      const result = []
+      nodes.forEach(node => {
+        if (node.nodeType === 'firePoint') {
+          result.push(node)
+        }
+        if (node.firePoints && node.firePoints.length) {
+          result.push(...node.firePoints)
+        }
+        if (node.children && node.children.length) {
+          result.push(...this.flattenFirePoints(node.children))
+        }
+      })
+      return [...new Map(result.map(item => [item.firePointId, item])).values()]
+    },
+
+    normalizeMapNode(node) {
+      const lat = parseFloat(node.latitude)
+      const lng = parseFloat(node.longitude)
+      if (!lat || !lng) return null
+      const isFirePoint = node.nodeType === 'firePoint'
+      return {
+        id: node.nodeId || `${node.nodeType}-${node.deptId || node.firePointId}`,
+        nodeType: node.nodeType,
+        name: node.name || node.deptName || node.firePointName,
+        title: node.name || node.deptName || node.firePointName,
+        lat,
+        lng,
+        status: isFirePoint ? this.getFirePointStatus(node) : 'normal',
+        info: isFirePoint ? (node.location || node.firePointName) : [node.province, node.city, node.area].filter(Boolean).join('-'),
+        deptId: node.deptId,
+        deptName: node.deptName,
+        firePointId: node.firePointId,
+        firePointName: node.firePointName,
+        leader: node.leader,
+        phone: node.phone,
+        contactPerson: node.contactPerson,
+        contactPhone: node.contactPhone,
+        externalCompanyId: node.externalCompanyId,
+        externalCompanyName: node.externalCompanyName,
+        location: node.location,
+        building: node.building,
+        floor: node.floor,
+        childUnitCount: node.childUnitCount || 0,
+        firePointCount: node.firePointCount || 0,
+        directFirePointCount: node.directFirePointCount || 0,
+        children: node.children || [],
+        firePoints: node.firePoints || [],
+        sourceNode: node
+      }
+    },
+
+    setMapLocations(nodes) {
+      const locations = (nodes || []).map(node => this.normalizeMapNode(node)).filter(Boolean)
+      const dataChanged = JSON.stringify(this.productLocations) !== JSON.stringify(locations)
+      this.productLocations = locations
+      if (locations.length === 0 && this.markerLayer) {
+        this.markerLayer.setMap(null)
+        this.markerLayer = null
+      }
+      if (this.map && dataChanged) {
+        this.updateMapMarkers()
+      }
+    },
+
+    showParentUnits() {
+      this.mapMode = 'parent'
+      this.mapStack = []
+      this.currentMapNode = null
+      this.updateMapTitle()
+      this.setMapLocations(this.mapHierarchy?.roots || [])
+    },
+
+    showChildUnits(parentNode) {
+      const children = parentNode.children || []
+      const childDeptNodes = children.filter(item => item.nodeType === 'childDept')
+      const directGroup = children.find(item => item.nodeType === 'directGroup')
+      if (childDeptNodes.length === 0 && directGroup && directGroup.firePointCount > 0) {
+        this.mapMode = 'firePoint'
+        this.currentMapNode = directGroup
+        this.mapStack = [{ mode: 'parent', node: null }]
+        this.updateMapTitle()
+        this.setMapLocations(directGroup.firePoints || [])
         return
       }
+      this.mapMode = 'child'
+      this.currentMapNode = parentNode
+      this.mapStack = [{ mode: 'parent', node: null }]
+      this.updateMapTitle()
+      this.setMapLocations(children)
+    },
 
-      // 生成地图标记数据，使用消防点的坐标
-      const newProductLocations = this.firePoints.map(point => {
-        const pointGateways = this.getPointGateways(point.firePointId)
-        const pointSensors = this.getPointSensors(point.firePointId, pointGateways)
-        const pointExtinguishers = this.getPointExtinguishers(point.firePointId, pointSensors)
-
-        // 确定消防点状态（根据关联设备的状态）
-        let status = 'normal'
-        if (pointExtinguishers.some(ext => ext.status === '2')) {
-          status = 'expired' // 过期
-        } else if (pointSensors.some(sensor => sensor.status === '1')) {
-          status = 'warning' // 预警
-        } else if (pointSensors.some(sensor => sensor.status === '2')) {
-          status = 'lowbat' // 低电量
-        }
-
-        return {
-          id: point.firePointId,
-          name: point.firePointName,
-          lat: parseFloat(point.latitude) || 0,
-          lng: parseFloat(point.longitude) || 0,
-          status: status,
-          info: point.location || point.firePointName,
-          gateways: pointGateways,
-          extinguishers: pointExtinguishers,
-          sensors: pointSensors
-        }
-      }).filter(location => location.lat && location.lng) // 过滤掉没有坐标的消防点
-
-      // 只有当数据发生变化时才更新
-      const dataChanged = JSON.stringify(this.productLocations) !== JSON.stringify(newProductLocations)
-      if (dataChanged) {
-        this.productLocations = newProductLocations
-
-        // 如果地图已初始化，更新标记
-        if (this.map) {
-          this.updateMapMarkers()
-        }
+    showFirePoints(node, pushStack = true) {
+      if (pushStack) {
+        this.mapStack.push({ mode: this.mapMode, node: this.currentMapNode })
       }
+      this.mapMode = 'firePoint'
+      this.currentMapNode = node
+      this.updateMapTitle()
+      this.setMapLocations(node.firePoints || [])
+    },
+
+    goBackMapLevel() {
+      const previous = this.mapStack.pop()
+      if (!previous || previous.mode === 'parent') {
+        this.showParentUnits()
+        return
+      }
+      if (previous.mode === 'child') {
+        this.mapMode = 'child'
+        this.currentMapNode = previous.node
+        this.updateMapTitle()
+        this.setMapLocations(previous.node?.children || [])
+      }
+    },
+
+    refreshCurrentMapLevel() {
+      if (this.mapMode === 'parent') {
+        this.showParentUnits()
+      } else if (this.mapMode === 'child' && this.currentMapNode) {
+        const latest = this.findNodeById(this.currentMapNode.nodeId, this.mapHierarchy?.roots || [])
+        this.showChildUnits(latest || this.currentMapNode)
+      } else if (this.mapMode === 'firePoint' && this.currentMapNode) {
+        const latest = this.findNodeById(this.currentMapNode.nodeId, this.mapHierarchy?.roots || [])
+        this.showFirePoints(latest || this.currentMapNode, false)
+      }
+    },
+
+    findNodeById(nodeId, nodes = []) {
+      for (const node of nodes) {
+        if (node.nodeId === nodeId) return node
+        const child = this.findNodeById(nodeId, node.children || [])
+        if (child) return child
+      }
+      return null
+    },
+
+    getFirePointStatus(point) {
+      const pointGateways = this.getPointGateways(point.firePointId)
+      const pointSensors = this.getPointSensors(point.firePointId, pointGateways)
+      const pointExtinguishers = this.getPointExtinguishers(point.firePointId, pointSensors)
+      if (pointExtinguishers.some(ext => ext.status === '2')) return 'expired'
+      if (pointSensors.some(sensor => sensor.status === '1')) return 'warning'
+      if (pointSensors.some(sensor => sensor.status === '2')) return 'lowbat'
+      return 'normal'
     },
 
     getPointGateways(firePointId) {
@@ -432,45 +531,6 @@ listPoint(DASHBOARD_DEVICE_QUERY).then(response => {
       return [...new Map(pointExtinguishers.map(item => [item.extinguisherId, item])).values()]
     },
 
-    // 更新部门标记（合同单位）
-    updateDeptMarkers() {
-      if (this.mapMode !== 'dept') return
-
-      // 过滤有经纬度的部门
-      const deptMarkers = this.deptList
-        .filter(dept => dept.longitude && dept.latitude)
-        .map(dept => {
-          // 查找该部门下的消防点
-          const deptFirePoints = this.firePoints.filter(fp => Number(fp.deptId) === Number(dept.deptId))
-          // 确定部门状态
-          let status = 'normal'
-          if (deptFirePoints.length === 0 && this.firePoints.length > 0) {
-            status = 'normal' // 没有设备也算正常
-          }
-          return {
-            id: dept.deptId,
-            name: dept.deptName,
-            lat: parseFloat(dept.latitude) || 0,
-            lng: parseFloat(dept.longitude) || 0,
-            status: status,
-            info: [dept.province, dept.city, dept.area].filter(Boolean).join('-'),
-            deptId: dept.deptId,
-            deptName: dept.deptName,
-            leader: dept.leader,
-            phone: dept.phone,
-            firePointCount: deptFirePoints.length
-          }
-        })
-
-      const dataChanged = JSON.stringify(this.productLocations) !== JSON.stringify(deptMarkers)
-      if (dataChanged) {
-        this.productLocations = deptMarkers
-        if (this.map) {
-          this.updateMapMarkers()
-        }
-      }
-    },
-
     updateMapMarkers() {
       if (!this.map || !this.productLocations || this.productLocations.length === 0) return
 
@@ -483,8 +543,7 @@ listPoint(DASHBOARD_DEVICE_QUERY).then(response => {
 
         // 创建新的标记数据
         const geometries = this.productLocations.map(loc => {
-          // 部门模式使用dept样式，设备模式使用status样式
-          const styleId = this.mapMode === 'dept' ? 'dept' : this._getStyleIdByStatus(loc.status)
+          const styleId = loc.nodeType === 'firePoint' ? this._getStyleIdByStatus(loc.status) : 'dept'
           return {
             id: loc.id,
             styleId: styleId,
@@ -495,12 +554,23 @@ listPoint(DASHBOARD_DEVICE_QUERY).then(response => {
               info: loc.info || '',
               status: loc.status,
               mapMode: this.mapMode,
-              // 部门额外信息
+              nodeType: loc.nodeType,
               deptId: loc.deptId,
               deptName: loc.deptName,
+              firePointId: loc.firePointId,
+              firePointName: loc.firePointName,
               leader: loc.leader,
               phone: loc.phone,
-              firePointCount: loc.firePointCount
+              contactPerson: loc.contactPerson,
+              contactPhone: loc.contactPhone,
+              externalCompanyId: loc.externalCompanyId,
+              externalCompanyName: loc.externalCompanyName,
+              location: loc.location,
+              building: loc.building,
+              floor: loc.floor,
+              childUnitCount: loc.childUnitCount,
+              firePointCount: loc.firePointCount,
+              directFirePointCount: loc.directFirePointCount
             }
           }
         })
@@ -561,16 +631,10 @@ listPoint(DASHBOARD_DEVICE_QUERY).then(response => {
       // 点击标记显示信息
       this.markerLayer.on('click', (evt) => {
         const props = evt.geometry.properties
-
-        let content = ''
-
-        if (props.mapMode === 'dept') {
-          // 部门模式：显示合同单位信息
-          content = this._buildDeptInfoContent(props)
-        } else {
-          // 设备模式：显示消防点设备信息
-          content = this._buildDeviceInfoContent(props)
-        }
+        const location = this.productLocations.find(item => String(item.id) === String(evt.geometry.id)) || props
+        const content = location.nodeType === 'firePoint'
+          ? this._buildDeviceInfoContent(location)
+          : this._buildDeptInfoContent(location)
 
         // 确保信息窗口已创建
         if (!this.infoWindow) {
@@ -593,78 +657,47 @@ listPoint(DASHBOARD_DEVICE_QUERY).then(response => {
           const viewBtn = document.getElementById('view-devices-btn')
           if (viewBtn) {
             viewBtn.onclick = () => {
-              this.switchToDeviceMode(props.deptId)
+              if (location.nodeType === 'parentDept') {
+                this.showChildUnits(location.sourceNode)
+              } else {
+                this.showFirePoints(location.sourceNode)
+              }
+              if (this.infoWindow) this.infoWindow.close()
             }
           }
 
-          // 返回合同单位按钮
           const backBtn = document.getElementById('back-to-dept-btn')
           if (backBtn) {
             backBtn.onclick = () => {
-              this.switchToDeptMode()
+              this.goBackMapLevel()
+              if (this.infoWindow) this.infoWindow.close()
             }
           }
         }, 100)
       })
     },
 
-    // 切换到设备模式
-    switchToDeviceMode(deptId) {
-      this.currentDept = this.deptList.find(d => Number(d.deptId) === Number(deptId))
-      this.mapMode = 'device'
-
-      // 关闭信息窗口
-      if (this.infoWindow) {
-        this.infoWindow.close()
-      }
-
-      // 更新标题
-      this.updateMapTitle()
-
-      // 筛选该部门的消防点
-      const filteredPoints = this.firePoints.filter(fp => Number(fp.deptId) === Number(deptId))
-      // 临时替换firePoints用于updateProductLocations
-      const originalFirePoints = [...this.firePoints]
-      this.firePoints = filteredPoints
-      this.updateProductLocations()
-      this.firePoints = originalFirePoints
-    },
-
-    // 切换到部门模式
-    switchToDeptMode() {
-      this.mapMode = 'dept'
-      this.currentDept = null
-
-      // 关闭信息窗口
-      if (this.infoWindow) {
-        this.infoWindow.close()
-      }
-
-      // 更新标题
-      this.updateMapTitle()
-
-      // 重新显示部门标记
-      this.updateDeptMarkers()
-    },
-
     // 更新地图标题
     updateMapTitle() {
       const titleEl = document.querySelector('.panel-title')
       if (titleEl) {
-        if (this.mapMode === 'dept') {
-          titleEl.innerHTML = '<i class="el-icon-location"></i> 合同用户分布'
-        } else {
-          titleEl.innerHTML = `<i class="el-icon-location"></i> ${this.currentDept?.deptName || ''} 设备分布`
-        }
+        const name = this.currentMapNode?.name || this.currentMapNode?.deptName || ''
+        if (this.mapMode === 'parent') titleEl.innerHTML = '<i class="el-icon-location"></i> 业务单位分布'
+        if (this.mapMode === 'child') titleEl.innerHTML = `<i class="el-icon-location"></i> ${name} 下级单位`
+        if (this.mapMode === 'firePoint') titleEl.innerHTML = `<i class="el-icon-location"></i> ${name} 消防点分布`
       }
     },
 
     // 构建部门信息窗口内容
     _buildDeptInfoContent(props) {
+      const actionText = props.nodeType === 'parentDept' ? '查看下级单位' : '查看消防点'
+      const canDrill = props.nodeType === 'parentDept'
+        ? ((props.children && props.children.length > 0) || props.firePointCount > 0)
+        : props.firePointCount > 0
       return `
         <div style="${POPUP_STYLES.container}">
           <div style="${POPUP_STYLES.title}">
-            ${props.title}
+            ${props.title || props.name}
           </div>
           <div style="margin-bottom:16px;">
             <div style="${POPUP_STYLES.label}">
@@ -679,10 +712,18 @@ listPoint(DASHBOARD_DEVICE_QUERY).then(response => {
             <div style="${POPUP_STYLES.label}">
               <span style="${POPUP_STYLES.labelSecondary}">消防点数量：</span>${props.firePointCount || 0} 个
             </div>
+            ${props.nodeType === 'parentDept' ? `
+            <div style="${POPUP_STYLES.label}">
+              <span style="${POPUP_STYLES.labelSecondary}">下级单位：</span>${props.childUnitCount || 0} 个
+            </div>
+            <div style="${POPUP_STYLES.label}">
+              <span style="${POPUP_STYLES.labelSecondary}">直属/未分配：</span>${props.directFirePointCount || 0} 个
+            </div>
+            ` : ''}
           </div>
-          ${props.firePointCount > 0 ? `
+          ${canDrill ? `
           <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--color-border-light);">
-            <button id="view-devices-btn" style="${POPUP_STYLES.primaryBtn}">查看设备分布</button>
+            <button id="view-devices-btn" style="${POPUP_STYLES.primaryBtn}">${actionText}</button>
           </div>
           ` : ''}
         </div>`
@@ -690,12 +731,13 @@ listPoint(DASHBOARD_DEVICE_QUERY).then(response => {
 
     // 构建设备信息窗口内容
     _buildDeviceInfoContent(props) {
-      const pointGateways = this.getPointGateways(props.id)
-      const pointSensors = this.getPointSensors(props.id, pointGateways)
-      const pointExtinguishers = this.getPointExtinguishers(props.id, pointSensors)
+      const firePointId = props.firePointId || props.id
+      const pointGateways = this.getPointGateways(firePointId)
+      const pointSensors = this.getPointSensors(firePointId, pointGateways)
+      const pointExtinguishers = this.getPointExtinguishers(firePointId, pointSensors)
 
       // 查找消防点详情
-      const firePoint = this.firePoints.find(fp => Number(fp.firePointId) === Number(props.id))
+      const firePoint = this.firePoints.find(fp => Number(fp.firePointId) === Number(firePointId)) || props
 
       // 统计灭火器各状态数量
       const extNormal = pointExtinguishers.filter(ext => ext.status === '0').length
@@ -705,7 +747,7 @@ listPoint(DASHBOARD_DEVICE_QUERY).then(response => {
       return `
         <div style="${POPUP_STYLES.container}">
           <div style="${POPUP_STYLES.title}">
-            ${props.title}
+            ${props.title || props.name}
           </div>
           <div style="margin-bottom:16px;">
             <div style="${POPUP_STYLES.label}">
@@ -753,7 +795,7 @@ listPoint(DASHBOARD_DEVICE_QUERY).then(response => {
             </div>
           </div>
           <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--color-border-light);">
-            <button id="back-to-dept-btn" style="${POPUP_STYLES.secondaryBtn}">返回合同单位</button>
+            <button id="back-to-dept-btn" style="${POPUP_STYLES.secondaryBtn}">返回上一级</button>
           </div>
         </div>`
     },
