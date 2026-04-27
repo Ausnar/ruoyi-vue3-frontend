@@ -86,3 +86,12 @@ export function getExpiryTrendStatistics(months = 6, contractType) {
     params: { months, contractType }
   })
 }
+
+// 合同地区分布统计
+export function getRegionStatistics(contractType) {
+  return request({
+    url: '/system/contract/statistics/region',
+    method: 'get',
+    params: { contractType }
+  })
+}

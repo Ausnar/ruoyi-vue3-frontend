@@ -91,9 +91,8 @@ import {
   getExpireStatusStatistics,
   getTopDeptStatistics,
   getExpiryTrendStatistics,
-  listContract
+  getRegionStatistics
 } from '@/api/system/contract'
-import { listDept } from '@/api/system/dept'
 
 const CONTRACT_TYPE_OPTIONS = [
   { label: '全部', value: 'all' },
@@ -169,14 +168,14 @@ export default {
         getExpireStatusStatistics(contractType),
         getTopDeptStatistics(10, contractType),
         getExpiryTrendStatistics(6, contractType),
-        listContract({ contractType }),
-        listDept({})
-      ]).then(([statusRes, expireStatusRes, topDeptRes, trendRes, contractRes, deptRes]) => {
+        getRegionStatistics(contractType)
+      ]).then(([statusRes, expireStatusRes, topDeptRes, trendRes, regionRes]) => {
         this.initStatusChart(statusRes.data || [])
         this.initExpireStatusChart(expireStatusRes.data || [])
         this.initTopDeptChart(topDeptRes.data || [])
         this.initTrendChart(trendRes.data || [])
-        this.processRegionDistribution(contractRes.rows || [], deptRes.data || [])
+        this.initProvinceChart(regionRes.data?.province || [])
+        this.initCityChart(regionRes.data?.city || [])
       }).catch(() => {
         this.$message.error('加载合同分析数据失败')
       })

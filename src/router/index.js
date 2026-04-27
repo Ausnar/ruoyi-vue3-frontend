@@ -101,6 +101,21 @@ export const constantRoutes = [
 
 // 动态路由，基于用户权限动态去加载
 export const dynamicRoutes = [
+  // 首页合同用户分析卡片隐藏路由：只按权限开放，不出现在侧边栏
+  {
+    path: '/contract-analysis',
+    component: Layout,
+    hidden: true,
+    permissions: ['system:contract:analysis', 'system:contract:list'],
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/system/contract/analysis.vue'),
+        name: 'ContractAnalysisCard',
+        meta: { title: '合同用户分析', activeMenu: '/index' }
+      }
+    ]
+  },
   // 传感器历史数据
   {
     path: '/fire/sensor/history',

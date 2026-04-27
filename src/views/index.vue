@@ -8,7 +8,10 @@
             <i class="el-icon-s-home"></i>
             安众道APS物联网灭火器管理系统
           </h1>
-          <p class="welcome-subtitle">{{ greeting }}，{{ userName }}！服务 {{ stats.contractUserCount }} 家合同用户</p>
+          <p class="welcome-subtitle">
+            {{ greeting }}，{{ userName }}！
+            <template v-if="canViewContractAnalysis">服务 {{ stats.contractUserCount }} 家合同用户</template>
+          </p>
         </div>
         <div class="time-display">
           <div class="current-date">{{ currentDate }}</div>
@@ -20,8 +23,8 @@
     <!-- 统计卡片 -->
     <el-row :gutter="20" class="stats-row">
       <!-- 合同用户卡片 -->
-      <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
-        <div class="stat-card card-contract" @click="navigateTo('/system/contract/analysis')">
+      <el-col v-if="canViewContractAnalysis" :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
+        <div class="stat-card card-contract" @click="navigateTo('/contract-analysis')">
           <div class="stat-icon">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -39,7 +42,7 @@
         </div>
       </el-col>
 
-      <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
+      <el-col v-if="canViewAlarmCard" :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
         <div class="stat-card card-alarm" @click="navigateTo('/fire/alarm')">
           <div class="stat-icon">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -59,7 +62,7 @@
         </div>
       </el-col>
 
-      <el-col :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
+      <el-col v-if="canViewMaintenanceCard" :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
         <div class="stat-card card-maintenance" @click="navigateTo('/fire/maintenance')">
           <div class="stat-icon">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -83,7 +86,7 @@
     <!-- 中间区域 - 地图和近期报警 -->
     <el-row :gutter="20" class="content-row">
       <!-- 左侧 - 腾讯地图 -->
-      <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+      <el-col v-if="canViewAlarmCard" :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
         <div class="panel-card" :class="{ 'fullscreen-panel': isMapFullscreen }">
           <div class="panel-header">
             <h3 class="panel-title">
@@ -174,11 +177,22 @@
 </template>
 
 <script>
-import { listContract } from '@/api/system/contract'
+import { getContractOverview } from '@/api/system/contract'
 import { getDashboardMapHierarchy } from '@/api/manage/dashboardMap'
 import { listExtinguisher } from '@/api/manage/extinguisher'
 import { listGateway } from '@/api/manage/gateway'
 import { listSensor } from '@/api/manage/sensor'
+import useUserStore from '@/store/modules/user'
+
+const DASHBOARD_CARD_PERMISSIONS = {
+  contract: ['system:contract:analysis', 'system:contract:list'],
+  alarm: ['dashboard:card:alarm'],
+  maintenance: ['dashboard:card:maintenance']
+}
+
+function hasAnyPermission(permissions, candidates) {
+  return permissions.includes('*:*:*') || candidates.some(permission => permissions.includes(permission))
+}
 
 // 地图弹窗样式常量 - 统一管理弹窗颜色
 const POPUP_STYLES = {
@@ -243,6 +257,18 @@ export default {
     }
   },
   computed: {
+    userPermissions() {
+      return useUserStore().permissions || []
+    },
+    canViewContractAnalysis() {
+      return hasAnyPermission(this.userPermissions, DASHBOARD_CARD_PERMISSIONS.contract)
+    },
+    canViewAlarmCard() {
+      return hasAnyPermission(this.userPermissions, DASHBOARD_CARD_PERMISSIONS.alarm)
+    },
+    canViewMaintenanceCard() {
+      return hasAnyPermission(this.userPermissions, DASHBOARD_CARD_PERMISSIONS.maintenance)
+    },
     greeting() {
       const hour = new Date().getHours()
       if (hour < 6) return '夜深了'
@@ -304,12 +330,16 @@ export default {
 
     loadStatistics() {
       // 获取合同用户数量
-      listContract({}).then(response => {
-        this.stats.contractUserCount = response.total || 0
-      }).catch(error => {
-        console.error('获取合同用户数据失败：', error)
+      if (this.canViewContractAnalysis) {
+        getContractOverview().then(response => {
+          this.stats.contractUserCount = Number(response.data?.total || 0)
+        }).catch(error => {
+          console.error('获取合同用户数据失败：', error)
+          this.stats.contractUserCount = 0
+        })
+      } else {
         this.stats.contractUserCount = 0
-      })
+      }
 
       // 获取部门数据（用于地图显示合同单位）
       getDashboardMapHierarchy().then(response => {
@@ -348,10 +378,10 @@ listSensor(DASHBOARD_DEVICE_QUERY).then(response => {
       })
 
       // 其他统计数据暂时使用模拟数据
-      this.stats.alarmPending = 8
-      this.stats.alarmPendingHigh = 2
-      this.stats.maintenanceMonth = 45
-      this.stats.maintenanceComplete = 38
+      this.stats.alarmPending = this.canViewAlarmCard ? 8 : 0
+      this.stats.alarmPendingHigh = this.canViewAlarmCard ? 2 : 0
+      this.stats.maintenanceMonth = this.canViewMaintenanceCard ? 45 : 0
+      this.stats.maintenanceComplete = this.canViewMaintenanceCard ? 38 : 0
     },
 
     updateProductLocations() {
@@ -801,6 +831,10 @@ listSensor(DASHBOARD_DEVICE_QUERY).then(response => {
     },
 
     loadRecentAlarms() {
+      if (!this.canViewAlarmCard) {
+        this.recentAlarms = []
+        return
+      }
       this.recentAlarms = [
         { id: 1, title: '传感器SN20240156压力异常', location: '办公楼3层东侧', time: '5分钟前', level: 3, status: 'pending', statusText: '待处理' },
         { id: 2, title: '灭火器FE20240089即将过期', location: '仓库区B区', time: '1小时前', level: 2, status: 'pending', statusText: '待处理' },
