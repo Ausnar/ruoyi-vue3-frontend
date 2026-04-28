@@ -168,7 +168,7 @@
       @pagination="getList"
     />
 
-    <!-- 添加或修改传感器管理对话框 -->
+    <!-- 添加或修改传感器信息对话框 -->
     <el-dialog :title="title" v-model="open" width="500px" append-to-body>
       <el-form ref="sensorRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="传感器编号" prop="sensorCode">
@@ -280,7 +280,7 @@ function getDeptTree() {
   })
 }
 
-/** 查询传感器管理列表 */
+/** 查询传感器信息列表 */
 function getList() {
   loading.value = true
   listSensor(queryParams.value).then(response => {
@@ -341,7 +341,7 @@ function handleSelectionChange(selection) {
 function handleAdd() {
   reset()
   open.value = true
-  title.value = "添加传感器管理"
+  title.value = "添加传感器信息"
 }
 
 /** 修改按钮操作 */
@@ -351,7 +351,7 @@ function handleUpdate(row) {
   getSensor(_sensorId).then(response => {
     form.value = response.data
     open.value = true
-    title.value = "修改传感器管理"
+    title.value = "修改传感器信息"
   })
 }
 
@@ -387,7 +387,7 @@ function submitForm() {
 /** 删除按钮操作 */
 function handleDelete(row) {
   const _sensorIds = row.sensorId || ids.value
-  proxy.$modal.confirm('是否确认删除传感器管理编号为"' + _sensorIds + '"的数据项？').then(function() {
+  proxy.$modal.confirm('是否确认删除传感器信息编号为"' + _sensorIds + '"的数据项？').then(function() {
     return delSensor(_sensorIds)
   }).then(() => {
     getList()

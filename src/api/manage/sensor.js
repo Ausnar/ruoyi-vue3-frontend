@@ -1,6 +1,6 @@
 import request from '@/utils/request'
 
-// 查询传感器管理列表
+// 查询传感器信息列表
 export function listSensor(query) {
   return request({
     url: '/manage/sensor/list',
@@ -9,7 +9,7 @@ export function listSensor(query) {
   })
 }
 
-// 查询传感器管理详细
+// 查询传感器信息详细
 export function getSensor(sensorId) {
   return request({
     url: '/manage/sensor/' + sensorId,
@@ -17,7 +17,7 @@ export function getSensor(sensorId) {
   })
 }
 
-// 新增传感器管理
+// 新增传感器信息
 export function addSensor(data) {
   return request({
     url: '/manage/sensor',
@@ -26,7 +26,7 @@ export function addSensor(data) {
   })
 }
 
-// 修改传感器管理
+// 修改传感器信息
 export function updateSensor(data) {
   return request({
     url: '/manage/sensor',
@@ -35,7 +35,7 @@ export function updateSensor(data) {
   })
 }
 
-// 删除传感器管理
+// 删除传感器信息
 export function delSensor(sensorId) {
   return request({
     url: '/manage/sensor/' + sensorId,
