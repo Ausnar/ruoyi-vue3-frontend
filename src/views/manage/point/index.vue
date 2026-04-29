@@ -85,6 +85,15 @@
           @keyup.enter="handleQuery"
         />
       </el-form-item>
+      <el-form-item label="应配灭火器" prop="expectedExtinguisherCount">
+        <el-input-number
+          v-model="queryParams.expectedExtinguisherCount"
+          :min="0"
+          :precision="0"
+          controls-position="right"
+          placeholder="请输入应配数量"
+        />
+      </el-form-item>
       <el-form-item label="二维码" prop="qrCode">
         <el-input
           v-model="queryParams.qrCode"
@@ -174,6 +183,11 @@
       <el-table-column label="纬度" align="center" prop="latitude" />
       <el-table-column label="负责人" align="center" prop="contactPerson" />
       <el-table-column label="联系电话" align="center" prop="contactPhone" />
+      <el-table-column label="应配灭火器" align="center" prop="expectedExtinguisherCount" width="110">
+        <template #default="scope">
+          <span>{{ scope.row.expectedExtinguisherCount ?? '未设置' }}</span>
+        </template>
+      </el-table-column>
       <el-table-column label="二维码" align="center" prop="qrCode" />
       <el-table-column label="显示顺序" align="center" prop="sortOrder" />
       <!-- 0正常 1停用 -->
@@ -197,7 +211,7 @@
 
     <!-- 添加或修改消防点信息对话框 -->
     <el-dialog :title="title" v-model="open" width="500px" append-to-body>
-      <el-form ref="pointRef" :model="form" :rules="rules" label-width="80px">
+      <el-form ref="pointRef" :model="form" :rules="rules" label-width="112px">
         <el-form-item label="消防点编号" prop="firePointCode">
           <el-input v-model="form.firePointCode" placeholder="请输入消防点编号" />
         </el-form-item>
@@ -236,6 +250,16 @@
         </el-form-item>
         <el-form-item label="联系电话" prop="contactPhone">
           <el-input v-model="form.contactPhone" placeholder="请输入联系电话" />
+        </el-form-item>
+        <el-form-item label="应配灭火器数量" prop="expectedExtinguisherCount">
+          <el-input-number
+            v-model="form.expectedExtinguisherCount"
+            :min="0"
+            :precision="0"
+            controls-position="right"
+            placeholder="请输入应配灭火器数量"
+            style="width: 100%"
+          />
         </el-form-item>
         <el-form-item label="二维码" prop="qrCode">
           <el-input v-model="form.qrCode" placeholder="请输入二维码" />
@@ -294,6 +318,7 @@ const data = reactive({
     latitude: null,
     contactPerson: null,
     contactPhone: null,
+    expectedExtinguisherCount: null,
     qrCode: null,
     sortOrder: null,
     status: null,
@@ -345,6 +370,7 @@ function reset() {
     latitude: null,
     contactPerson: null,
     contactPhone: null,
+    expectedExtinguisherCount: null,
     qrCode: null,
     sortOrder: null,
     status: null,

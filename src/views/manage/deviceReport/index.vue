@@ -135,12 +135,14 @@
                 <el-descriptions :column="2" border>
                   <el-descriptions-item label="传感器异常">{{ overview.sensorAbnormalCount || 0 }}</el-descriptions-item>
                   <el-descriptions-item label="传感器离线">{{ overview.sensorOfflineCount || 0 }}</el-descriptions-item>
-                  <el-descriptions-item label="低电量">{{ overview.sensorLowBatteryCount || 0 }}</el-descriptions-item>
-                  <el-descriptions-item label="低压力">{{ overview.sensorLowPressureCount || 0 }}</el-descriptions-item>
+                  <el-descriptions-item label="持续低电量">{{ overview.sensorLowBatteryCount || 0 }}</el-descriptions-item>
+                  <el-descriptions-item label="持续低压力">{{ overview.sensorLowPressureCount || 0 }}</el-descriptions-item>
+                  <el-descriptions-item label="持续高压力">{{ overview.sensorHighPressureCount || 0 }}</el-descriptions-item>
                   <el-descriptions-item label="压力脏值">{{ overview.sensorInvalidPressureCount || 0 }}</el-descriptions-item>
                   <el-descriptions-item label="未来采样">{{ overview.historyFutureCount || 0 }}</el-descriptions-item>
                   <el-descriptions-item label="网关未绑定消防点">{{ overview.gatewayUnboundFirePointCount || 0 }}</el-descriptions-item>
                   <el-descriptions-item label="灭火器30天内到期">{{ overview.extinguisherExpiringSoonCount || 0 }}</el-descriptions-item>
+                  <el-descriptions-item label="灭火器数量不足">{{ overview.firePointExtinguisherShortageCount || 0 }}</el-descriptions-item>
                 </el-descriptions>
 
                 <div class="sensor-metric-title">传感器采样摘要</div>
