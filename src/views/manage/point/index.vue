@@ -29,6 +29,17 @@
           check-strictly
         />
       </el-form-item>
+      <el-form-item label="归属地区" prop="deptRegion">
+        <el-cascader
+          v-model="queryParams.deptRegion"
+          :options="regionData"
+          :props="{ checkStrictly: true }"
+          placeholder="请选择归属地区"
+          clearable
+          style="width: 220px"
+          @change="handleDeptRegionChange"
+        />
+      </el-form-item>
       <el-form-item label="位置描述" prop="location">
         <el-input
           v-model="queryParams.location"
@@ -174,6 +185,11 @@
           <span>{{ scope.row.deptName || '-' }}</span>
         </template>
       </el-table-column>
+      <el-table-column label="归属地区" align="center" min-width="180" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <span>{{ formatDeptRegion(scope.row) }}</span>
+        </template>
+      </el-table-column>
       <!-- 室内/室外/重点区域等 -->
       <el-table-column label="类型" align="center" prop="pointType" />
       <el-table-column label="位置描述" align="center" prop="location" />
@@ -288,6 +304,7 @@
 <script setup name="Point">
 import { listPoint, getPoint, delPoint, addPoint, updatePoint } from "@/api/manage/point"
 import { deptTreeSelect } from "@/api/system/user"
+import { regionData } from "@/utils/regionData"
 
 const { proxy } = getCurrentInstance()
 
@@ -310,6 +327,10 @@ const data = reactive({
     firePointCode: null,
     firePointName: null,
     deptId: null,
+    deptRegion: [],
+    deptProvince: null,
+    deptCity: null,
+    deptArea: null,
     pointType: null,
     location: null,
     floor: null,
@@ -342,11 +363,34 @@ function getDeptTree() {
 /** 查询消防点信息列表 */
 function getList() {
   loading.value = true
-  listPoint(queryParams.value).then(response => {
+  listPoint(buildQueryParams()).then(response => {
     pointList.value = response.rows
     total.value = response.total
     loading.value = false
   })
+}
+
+function buildQueryParams() {
+  const { deptRegion, ...params } = queryParams.value
+  return params
+}
+
+function handleDeptRegionChange(value) {
+  const region = value || []
+  queryParams.value.deptProvince = region[0] || null
+  queryParams.value.deptCity = region[1] || null
+  queryParams.value.deptArea = region[2] || null
+}
+
+function clearDeptRegionQuery() {
+  queryParams.value.deptRegion = []
+  queryParams.value.deptProvince = null
+  queryParams.value.deptCity = null
+  queryParams.value.deptArea = null
+}
+
+function formatDeptRegion(row) {
+  return [row.deptProvince, row.deptCity, row.deptArea].filter(Boolean).join(' / ') || '-'
 }
 
 // 取消按钮
@@ -393,6 +437,7 @@ function handleQuery() {
 /** 重置按钮操作 */
 function resetQuery() {
   proxy.resetForm("queryRef")
+  clearDeptRegionQuery()
   handleQuery()
 }
 
@@ -456,7 +501,7 @@ function handleDelete(row) {
 /** 导出按钮操作 */
 function handleExport() {
   proxy.download('manage/point/export', {
-    ...queryParams.value
+    ...buildQueryParams()
   }, `point_${new Date().getTime()}.xlsx`)
 }
 

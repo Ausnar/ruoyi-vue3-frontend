@@ -44,6 +44,17 @@
           check-strictly
         />
       </el-form-item>
+      <el-form-item label="归属地区" prop="deptRegion">
+        <el-cascader
+          v-model="queryParams.deptRegion"
+          :options="regionData"
+          :props="{ checkStrictly: true }"
+          placeholder="请选择归属地区"
+          clearable
+          style="width: 220px"
+          @change="handleDeptRegionChange"
+        />
+      </el-form-item>
       <el-form-item label="产品名称" prop="productName">
         <el-input
           v-model="queryParams.productName"
@@ -186,6 +197,11 @@
       <el-table-column label="归属单位" align="center" prop="deptName" :show-overflow-tooltip="true">
         <template #default="scope">
           <span>{{ scope.row.deptName || '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="归属地区" align="center" min-width="180" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <span>{{ formatDeptRegion(scope.row) }}</span>
         </template>
       </el-table-column>
       <el-table-column label="灭火器ID" align="center" prop="extinguisherId" />
@@ -335,6 +351,7 @@
 <script setup name="Extinguisher">
 import { listExtinguisher, getExtinguisher, delExtinguisher, addExtinguisher, updateExtinguisher } from "@/api/manage/extinguisher"
 import { deptTreeSelect } from "@/api/system/user"
+import { regionData } from "@/utils/regionData"
 
 const { proxy } = getCurrentInstance()
 
@@ -359,6 +376,10 @@ const data = reactive({
     sensorId: null,
     sensorCode: null,
     deptId: null,
+    deptRegion: [],
+    deptProvince: null,
+    deptCity: null,
+    deptArea: null,
     productName: null,
     manufacturer: null,
     serviceProvider: null,
@@ -390,11 +411,34 @@ function getDeptTree() {
 /** 查询灭火器信息列表 */
 function getList() {
   loading.value = true
-  listExtinguisher(queryParams.value).then(response => {
+  listExtinguisher(buildQueryParams()).then(response => {
     extinguisherList.value = response.rows
     total.value = response.total
     loading.value = false
   })
+}
+
+function buildQueryParams() {
+  const { deptRegion, ...params } = queryParams.value
+  return params
+}
+
+function handleDeptRegionChange(value) {
+  const region = value || []
+  queryParams.value.deptProvince = region[0] || null
+  queryParams.value.deptCity = region[1] || null
+  queryParams.value.deptArea = region[2] || null
+}
+
+function clearDeptRegionQuery() {
+  queryParams.value.deptRegion = []
+  queryParams.value.deptProvince = null
+  queryParams.value.deptCity = null
+  queryParams.value.deptArea = null
+}
+
+function formatDeptRegion(row) {
+  return [row.deptProvince, row.deptCity, row.deptArea].filter(Boolean).join(' / ') || '-'
 }
 
 // 取消按钮
@@ -442,6 +486,7 @@ function handleQuery() {
 /** 重置按钮操作 */
 function resetQuery() {
   proxy.resetForm("queryRef")
+  clearDeptRegionQuery()
   handleQuery()
 }
 
@@ -505,7 +550,7 @@ function handleDelete(row) {
 /** 导出按钮操作 */
 function handleExport() {
   proxy.download('manage/extinguisher/export', {
-    ...queryParams.value
+    ...buildQueryParams()
   }, `extinguisher_${new Date().getTime()}.xlsx`)
 }
 

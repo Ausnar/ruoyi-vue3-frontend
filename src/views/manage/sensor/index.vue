@@ -21,6 +21,17 @@
           check-strictly
         />
       </el-form-item>
+      <el-form-item label="归属地区" prop="deptRegion">
+        <el-cascader
+          v-model="queryParams.deptRegion"
+          :options="regionData"
+          :props="{ checkStrictly: true }"
+          placeholder="请选择归属地区"
+          clearable
+          style="width: 220px"
+          @change="handleDeptRegionChange"
+        />
+      </el-form-item>
       <el-form-item label="网关编号" prop="gatewayCode">
         <el-input
           v-model="queryParams.gatewayCode"
@@ -135,6 +146,11 @@
           <span>{{ scope.row.deptName || '-' }}</span>
         </template>
       </el-table-column>
+      <el-table-column label="归属地区" align="center" min-width="180" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <span>{{ formatDeptRegion(scope.row) }}</span>
+        </template>
+      </el-table-column>
       <el-table-column label="网关编号" align="center" prop="gatewayCode" />
       <el-table-column label="压力值(MPa)" align="center" prop="pressure" />
       <el-table-column label="温度值(℃)" align="center" prop="temperature" />
@@ -235,6 +251,7 @@
 import { listSensor, getSensor, delSensor, addSensor, updateSensor } from "@/api/manage/sensor"
 import { deptTreeSelect } from "@/api/system/user"
 import router from "@/router"
+import { regionData } from "@/utils/regionData"
 
 const { proxy } = getCurrentInstance()
 const { sys_job_status } = proxy.useDict('sys_job_status')
@@ -257,6 +274,10 @@ const data = reactive({
     pageSize: 10,
     sensorCode: null,
     deptId: null,
+    deptRegion: [],
+    deptProvince: null,
+    deptCity: null,
+    deptArea: null,
     gatewayCode: null,
     pressure: null,
     temperature: null,
@@ -283,11 +304,34 @@ function getDeptTree() {
 /** 查询传感器信息列表 */
 function getList() {
   loading.value = true
-  listSensor(queryParams.value).then(response => {
+  listSensor(buildQueryParams()).then(response => {
     sensorList.value = response.rows
     total.value = response.total
     loading.value = false
   })
+}
+
+function buildQueryParams() {
+  const { deptRegion, ...params } = queryParams.value
+  return params
+}
+
+function handleDeptRegionChange(value) {
+  const region = value || []
+  queryParams.value.deptProvince = region[0] || null
+  queryParams.value.deptCity = region[1] || null
+  queryParams.value.deptArea = region[2] || null
+}
+
+function clearDeptRegionQuery() {
+  queryParams.value.deptRegion = []
+  queryParams.value.deptProvince = null
+  queryParams.value.deptCity = null
+  queryParams.value.deptArea = null
+}
+
+function formatDeptRegion(row) {
+  return [row.deptProvince, row.deptCity, row.deptArea].filter(Boolean).join(' / ') || '-'
 }
 
 // 取消按钮
@@ -327,6 +371,7 @@ function handleQuery() {
 /** 重置按钮操作 */
 function resetQuery() {
   proxy.resetForm("queryRef")
+  clearDeptRegionQuery()
   handleQuery()
 }
 
@@ -398,7 +443,7 @@ function handleDelete(row) {
 /** 导出按钮操作 */
 function handleExport() {
   proxy.download('manage/sensor/export', {
-    ...queryParams.value
+    ...buildQueryParams()
   }, `sensor_${new Date().getTime()}.xlsx`)
 }
 

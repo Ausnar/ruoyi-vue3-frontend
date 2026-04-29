@@ -52,6 +52,17 @@
           check-strictly
         />
       </el-form-item>
+      <el-form-item label="归属地区" prop="deptRegion">
+        <el-cascader
+          v-model="queryParams.deptRegion"
+          :options="regionData"
+          :props="{ checkStrictly: true }"
+          placeholder="请选择归属地区"
+          clearable
+          style="width: 220px"
+          @change="handleDeptRegionChange"
+        />
+      </el-form-item>
       <el-form-item label="同步状态" prop="syncStatus">
         <el-select v-model="queryParams.syncStatus" placeholder="请选择同步状态" clearable>
           <el-option label="已同步" value="synced" />
@@ -101,6 +112,11 @@
       <el-table-column label="归属单位" align="center" prop="deptName" min-width="180" :show-overflow-tooltip="true">
         <template #default="scope">
           <span>{{ scope.row.deptName || '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="归属地区" align="center" min-width="180" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <span>{{ formatDeptRegion(scope.row) }}</span>
         </template>
       </el-table-column>
       <el-table-column label="来源单位" align="center" prop="sourceDeptName" min-width="180" :show-overflow-tooltip="true">
@@ -166,6 +182,7 @@
         <el-descriptions-item label="SIM卡号">{{ form.sim || '-' }}</el-descriptions-item>
         <el-descriptions-item label="外部单位">{{ form.externalCompanyName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="归属单位">{{ form.deptName || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="归属地区">{{ formatDeptRegion(form) }}</el-descriptions-item>
         <el-descriptions-item label="来源单位">{{ form.sourceDeptName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="消防点">{{ form.firePointName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="经度">{{ form.gpsLongitude || '-' }}</el-descriptions-item>
@@ -188,6 +205,7 @@
 <script setup name="Gateway">
 import { listGateway, getGateway } from "@/api/manage/gateway"
 import { deptTreeSelect } from "@/api/system/user"
+import { regionData } from "@/utils/regionData"
 
 const { proxy } = getCurrentInstance()
 
@@ -209,6 +227,10 @@ const data = reactive({
     firePointName: null,
     externalCompanyName: null,
     deptId: null,
+    deptRegion: [],
+    deptProvince: null,
+    deptCity: null,
+    deptArea: null,
     syncStatus: null,
     status: null
   }
@@ -224,12 +246,35 @@ function getDeptTree() {
 
 function getList() {
   loading.value = true
-  listGateway(queryParams.value).then(response => {
+  listGateway(buildQueryParams()).then(response => {
     gatewayList.value = response.rows
     total.value = response.total
   }).finally(() => {
     loading.value = false
   })
+}
+
+function buildQueryParams() {
+  const { deptRegion, ...params } = queryParams.value
+  return params
+}
+
+function handleDeptRegionChange(value) {
+  const region = value || []
+  queryParams.value.deptProvince = region[0] || null
+  queryParams.value.deptCity = region[1] || null
+  queryParams.value.deptArea = region[2] || null
+}
+
+function clearDeptRegionQuery() {
+  queryParams.value.deptRegion = []
+  queryParams.value.deptProvince = null
+  queryParams.value.deptCity = null
+  queryParams.value.deptArea = null
+}
+
+function formatDeptRegion(row) {
+  return [row.deptProvince, row.deptCity, row.deptArea].filter(Boolean).join(' / ') || '-'
 }
 
 function handleQuery() {
@@ -239,6 +284,7 @@ function handleQuery() {
 
 function resetQuery() {
   proxy.resetForm("queryRef")
+  clearDeptRegionQuery()
   handleQuery()
 }
 
@@ -251,7 +297,7 @@ function handleDetail(row) {
 
 function handleExport() {
   proxy.download('manage/gateway/export', {
-    ...queryParams.value
+    ...buildQueryParams()
   }, `gateway_${new Date().getTime()}.xlsx`)
 }
 
