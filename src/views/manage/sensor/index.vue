@@ -1,80 +1,62 @@
 <template>
   <div class="app-container">
-    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
-      <el-form-item label="传感器编号" prop="sensorCode">
+    <el-form class="sensor-query-form" :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="96px">
+      <el-form-item class="query-date" label="最后在线时间">
+        <el-date-picker clearable
+          class="query-date-picker"
+          v-model="lastOnlineTimeRange"
+          type="daterange"
+          value-format="YYYY-MM-DD"
+          range-separator="-"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期">
+        </el-date-picker>
+      </el-form-item>
+      <el-form-item class="query-region" label="归属地区" prop="deptRegion">
+        <el-cascader
+          class="query-control"
+          v-model="queryParams.deptRegion"
+          :options="regionData"
+          :props="{ checkStrictly: true }"
+          placeholder="请选择归属地区"
+          clearable
+          @change="handleDeptRegionChange"
+        />
+      </el-form-item>
+      <!-- 关联sys_dept -->
+      <el-form-item class="query-dept" label="所属单位" prop="deptId">
+        <el-tree-select
+          class="query-control"
+          v-model="queryParams.deptId"
+          :data="deptOptions"
+          :props="{ value: 'id', label: 'label', children: 'children' }"
+          value-key="id"
+          placeholder="请选择所属单位"
+          clearable
+          check-strictly
+        />
+      </el-form-item>
+      <el-form-item class="query-code" label="传感器编号" prop="sensorCode">
         <el-input
+          class="query-control"
           v-model="queryParams.sensorCode"
           placeholder="请输入传感器编号"
           clearable
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <!-- 关联sys_dept -->
-      <el-form-item label="所属部门" prop="deptId">
-        <el-tree-select
-          v-model="queryParams.deptId"
-          :data="deptOptions"
-          :props="{ value: 'id', label: 'label', children: 'children' }"
-          value-key="id"
-          placeholder="请选择所属部门"
-          clearable
-          check-strictly
-        />
-      </el-form-item>
-      <el-form-item label="归属地区" prop="deptRegion">
-        <el-cascader
-          v-model="queryParams.deptRegion"
-          :options="regionData"
-          :props="{ checkStrictly: true }"
-          placeholder="请选择归属地区"
-          clearable
-          style="width: 220px"
-          @change="handleDeptRegionChange"
-        />
-      </el-form-item>
-      <el-form-item label="网关编号" prop="gatewayCode">
+      <el-form-item class="query-gateway" label="网关编号" prop="gatewayCode">
         <el-input
+          class="query-control"
           v-model="queryParams.gatewayCode"
           placeholder="请输入网关编号"
           clearable
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="压力值" prop="pressure">
-        <el-input
-          v-model="queryParams.pressure"
-          placeholder="请输入压力值(MPa)"
-          clearable
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="温度值" prop="temperature">
-        <el-input
-          v-model="queryParams.temperature"
-          placeholder="请输入温度值(℃)"
-          clearable
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="电量" prop="batteryLevel">
-        <el-input
-          v-model="queryParams.batteryLevel"
-          placeholder="请输入电量(%)"
-          clearable
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="最后在线时间" prop="lastOnlineTime">
-        <el-date-picker clearable
-          v-model="queryParams.lastOnlineTime"
-          type="date"
-          value-format="YYYY-MM-DD"
-          placeholder="请选择最后在线时间">
-        </el-date-picker>
-      </el-form-item>
       <!-- 0正常 1异常 2离线 -->
-      <el-form-item label="状态" prop="status">
-        <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
+      <el-form-item class="query-status" label="状态" prop="status">
+        <el-select class="query-control" v-model="queryParams.status" placeholder="请选择状态" clearable>
           <el-option
             v-for="dict in sys_job_status"
             :key="dict.value"
@@ -83,7 +65,7 @@
           />
         </el-select>
       </el-form-item>
-      <el-form-item>
+      <el-form-item class="query-actions">
         <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
         <el-button icon="Refresh" @click="resetQuery">重置</el-button>
       </el-form-item>
@@ -133,22 +115,15 @@
 
     <el-table v-loading="loading" :data="sensorList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="传感器ID" align="center" prop="sensorId" />
       <el-table-column label="传感器编号" align="center" prop="sensorCode" />
-      <!-- 关联sys_dept -->
-      <el-table-column label="外部单位" align="center" prop="externalCompanyName" :show-overflow-tooltip="true">
-        <template #default="scope">
-          <span>{{ scope.row.externalCompanyName || '-' }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="归属单位" align="center" prop="deptName" :show-overflow-tooltip="true">
-        <template #default="scope">
-          <span>{{ scope.row.deptName || '-' }}</span>
-        </template>
-      </el-table-column>
       <el-table-column label="归属地区" align="center" min-width="180" :show-overflow-tooltip="true">
         <template #default="scope">
           <span>{{ formatDeptRegion(scope.row) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="所属单位" align="center" prop="deptName" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <span>{{ scope.row.deptName || '-' }}</span>
         </template>
       </el-table-column>
       <el-table-column label="网关编号" align="center" prop="gatewayCode" />
@@ -166,12 +141,13 @@
           <dict-tag :options="sys_job_status" :value="scope.row.status"/>
         </template>
       </el-table-column>
-      <el-table-column label="备注" align="center" prop="remark" />
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="center" width="80" class-name="small-padding fixed-width">
         <template #default="scope">
-          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['manage:sensor:edit']">修改</el-button>
-          <el-button link type="success" icon="TrendCharts" @click="handleHistory(scope.row)" v-hasPermi="['manage:sensor:query']">历史</el-button>
-          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['manage:sensor:remove']">删除</el-button>
+          <div class="table-actions">
+            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['manage:sensor:edit']">修改</el-button>
+            <el-button link type="success" icon="TrendCharts" @click="handleHistory(scope.row)" v-hasPermi="['manage:sensor:query']">历史</el-button>
+            <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['manage:sensor:remove']">删除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -190,13 +166,13 @@
         <el-form-item label="传感器编号" prop="sensorCode">
           <el-input v-model="form.sensorCode" placeholder="请输入传感器编号" />
         </el-form-item>
-        <el-form-item label="所属部门" prop="deptId">
+        <el-form-item label="所属单位" prop="deptId">
           <el-tree-select
             v-model="form.deptId"
             :data="deptOptions"
             :props="{ value: 'id', label: 'label', children: 'children' }"
             value-key="id"
-            placeholder="请选择所属部门"
+            placeholder="请选择所属单位"
             clearable
             check-strictly
           />
@@ -266,6 +242,7 @@ const multiple = ref(true)
 const total = ref(0)
 const title = ref("")
 const deptOptions = ref([])
+const lastOnlineTimeRange = ref([])
 
 const data = reactive({
   form: {},
@@ -279,10 +256,6 @@ const data = reactive({
     deptCity: null,
     deptArea: null,
     gatewayCode: null,
-    pressure: null,
-    temperature: null,
-    batteryLevel: null,
-    lastOnlineTime: null,
     status: null,
   },
   rules: {
@@ -295,9 +268,12 @@ const data = reactive({
 const { queryParams, form, rules } = toRefs(data)
 
 /** 查询部门下拉树结构 */
-function getDeptTree() {
-  deptTreeSelect().then(response => {
-    deptOptions.value = response.data
+function getDeptTree(validateDept = false) {
+  deptTreeSelect(buildDeptTreeParams()).then(response => {
+    deptOptions.value = response.data || []
+    if (validateDept && queryParams.value.deptId && !containsDept(deptOptions.value, queryParams.value.deptId)) {
+      queryParams.value.deptId = null
+    }
   })
 }
 
@@ -313,7 +289,19 @@ function getList() {
 
 function buildQueryParams() {
   const { deptRegion, ...params } = queryParams.value
-  return params
+  return proxy.addDateRange(params, lastOnlineTimeRange.value, 'LastOnlineTime')
+}
+
+function buildDeptTreeParams() {
+  return {
+    province: queryParams.value.deptProvince,
+    city: queryParams.value.deptCity,
+    area: queryParams.value.deptArea
+  }
+}
+
+function containsDept(nodes, deptId) {
+  return nodes.some(node => String(node.id) === String(deptId) || containsDept(node.children || [], deptId))
 }
 
 function handleDeptRegionChange(value) {
@@ -321,6 +309,7 @@ function handleDeptRegionChange(value) {
   queryParams.value.deptProvince = region[0] || null
   queryParams.value.deptCity = region[1] || null
   queryParams.value.deptArea = region[2] || null
+  getDeptTree(true)
 }
 
 function clearDeptRegionQuery() {
@@ -328,6 +317,7 @@ function clearDeptRegionQuery() {
   queryParams.value.deptProvince = null
   queryParams.value.deptCity = null
   queryParams.value.deptArea = null
+  getDeptTree(true)
 }
 
 function formatDeptRegion(row) {
@@ -371,6 +361,7 @@ function handleQuery() {
 /** 重置按钮操作 */
 function resetQuery() {
   proxy.resetForm("queryRef")
+  lastOnlineTimeRange.value = []
   clearDeptRegionQuery()
   handleQuery()
 }
@@ -450,3 +441,90 @@ function handleExport() {
 getList()
 getDeptTree()
 </script>
+
+<style scoped>
+.sensor-query-form {
+  display: grid;
+  grid-template-columns: repeat(4, max-content);
+  align-items: start;
+  column-gap: 24px;
+  row-gap: 12px;
+  margin-bottom: 18px;
+}
+
+.sensor-query-form :deep(.el-form-item) {
+  margin-right: 0;
+  margin-bottom: 0;
+}
+
+.sensor-query-form :deep(.el-form-item__label) {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.query-date {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.query-region {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.query-dept {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.query-status {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.query-actions {
+  grid-column: 1 / -1;
+  grid-row: auto;
+  white-space: nowrap;
+}
+
+.query-code {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.query-gateway {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.query-date-picker {
+  width: 320px;
+}
+
+.query-control {
+  width: 220px;
+}
+
+.query-dept .query-control,
+.query-region .query-control {
+  width: 240px;
+}
+
+.table-actions {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.table-actions :deep(.el-button + .el-button) {
+  margin-left: 0;
+}
+
+@media (max-width: 1500px) {
+  .sensor-query-form {
+    grid-template-columns: repeat(2, max-content);
+  }
+}
+</style>

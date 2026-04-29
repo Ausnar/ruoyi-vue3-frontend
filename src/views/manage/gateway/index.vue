@@ -1,6 +1,28 @@
 <template>
   <div class="app-container">
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="92px">
+      <el-form-item label="归属地区" prop="deptRegion">
+        <el-cascader
+          v-model="queryParams.deptRegion"
+          :options="regionData"
+          :props="{ checkStrictly: true }"
+          placeholder="请选择归属地区"
+          clearable
+          style="width: 220px"
+          @change="handleDeptRegionChange"
+        />
+      </el-form-item>
+      <el-form-item label="所属单位" prop="deptId">
+        <el-tree-select
+          v-model="queryParams.deptId"
+          :data="deptOptions"
+          :props="{ value: 'id', label: 'label', children: 'children' }"
+          value-key="id"
+          placeholder="请选择所属单位"
+          clearable
+          check-strictly
+        />
+      </el-form-item>
       <el-form-item label="网关IMEI" prop="imei">
         <el-input
           v-model="queryParams.imei"
@@ -39,28 +61,6 @@
           placeholder="请输入外部单位"
           clearable
           @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="归属单位" prop="deptId">
-        <el-tree-select
-          v-model="queryParams.deptId"
-          :data="deptOptions"
-          :props="{ value: 'id', label: 'label', children: 'children' }"
-          value-key="id"
-          placeholder="请选择归属单位"
-          clearable
-          check-strictly
-        />
-      </el-form-item>
-      <el-form-item label="归属地区" prop="deptRegion">
-        <el-cascader
-          v-model="queryParams.deptRegion"
-          :options="regionData"
-          :props="{ checkStrictly: true }"
-          placeholder="请选择归属地区"
-          clearable
-          style="width: 220px"
-          @change="handleDeptRegionChange"
         />
       </el-form-item>
       <el-form-item label="同步状态" prop="syncStatus">
@@ -109,14 +109,14 @@
           <span>{{ scope.row.externalCompanyName || '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="归属单位" align="center" prop="deptName" min-width="180" :show-overflow-tooltip="true">
-        <template #default="scope">
-          <span>{{ scope.row.deptName || '-' }}</span>
-        </template>
-      </el-table-column>
       <el-table-column label="归属地区" align="center" min-width="180" :show-overflow-tooltip="true">
         <template #default="scope">
           <span>{{ formatDeptRegion(scope.row) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="所属单位" align="center" prop="deptName" min-width="180" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <span>{{ scope.row.deptName || '-' }}</span>
         </template>
       </el-table-column>
       <el-table-column label="来源单位" align="center" prop="sourceDeptName" min-width="180" :show-overflow-tooltip="true">
@@ -181,8 +181,8 @@
         <el-descriptions-item label="网关IMEI">{{ form.imei || '-' }}</el-descriptions-item>
         <el-descriptions-item label="SIM卡号">{{ form.sim || '-' }}</el-descriptions-item>
         <el-descriptions-item label="外部单位">{{ form.externalCompanyName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="归属单位">{{ form.deptName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="归属地区">{{ formatDeptRegion(form) }}</el-descriptions-item>
+        <el-descriptions-item label="所属单位">{{ form.deptName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="来源单位">{{ form.sourceDeptName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="消防点">{{ form.firePointName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="经度">{{ form.gpsLongitude || '-' }}</el-descriptions-item>
@@ -238,9 +238,12 @@ const data = reactive({
 
 const { queryParams, form } = toRefs(data)
 
-function getDeptTree() {
-  deptTreeSelect().then(response => {
-    deptOptions.value = response.data
+function getDeptTree(validateDept = false) {
+  deptTreeSelect(buildDeptTreeParams()).then(response => {
+    deptOptions.value = response.data || []
+    if (validateDept && queryParams.value.deptId && !containsDept(deptOptions.value, queryParams.value.deptId)) {
+      queryParams.value.deptId = null
+    }
   })
 }
 
@@ -259,11 +262,24 @@ function buildQueryParams() {
   return params
 }
 
+function buildDeptTreeParams() {
+  return {
+    province: queryParams.value.deptProvince,
+    city: queryParams.value.deptCity,
+    area: queryParams.value.deptArea
+  }
+}
+
+function containsDept(nodes, deptId) {
+  return nodes.some(node => String(node.id) === String(deptId) || containsDept(node.children || [], deptId))
+}
+
 function handleDeptRegionChange(value) {
   const region = value || []
   queryParams.value.deptProvince = region[0] || null
   queryParams.value.deptCity = region[1] || null
   queryParams.value.deptArea = region[2] || null
+  getDeptTree(true)
 }
 
 function clearDeptRegionQuery() {
@@ -271,6 +287,7 @@ function clearDeptRegionQuery() {
   queryParams.value.deptProvince = null
   queryParams.value.deptCity = null
   queryParams.value.deptArea = null
+  getDeptTree(true)
 }
 
 function formatDeptRegion(row) {

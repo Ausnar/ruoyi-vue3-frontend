@@ -1,84 +1,6 @@
 <template>
   <div class="app-container">
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
-      <el-form-item label="标志明码" prop="labelCode">
-        <el-input
-          v-model="queryParams.labelCode"
-          placeholder="请输入标志明码"
-          clearable
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="规格型号" prop="specification">
-        <el-input
-          v-model="queryParams.specification"
-          placeholder="请输入规格型号"
-          clearable
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="传感器ID" prop="sensorId">
-        <el-input
-          v-model="queryParams.sensorId"
-          placeholder="请输入传感器ID"
-          clearable
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="传感器编号" prop="sensorCode">
-        <el-input
-          v-model="queryParams.sensorCode"
-          placeholder="请输入传感器编号"
-          clearable
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="所属部门" prop="deptId">
-        <el-tree-select
-          v-model="queryParams.deptId"
-          :data="deptOptions"
-          :props="{ value: 'id', label: 'label', children: 'children' }"
-          value-key="id"
-          placeholder="请选择所属部门"
-          clearable
-          check-strictly
-        />
-      </el-form-item>
-      <el-form-item label="归属地区" prop="deptRegion">
-        <el-cascader
-          v-model="queryParams.deptRegion"
-          :options="regionData"
-          :props="{ checkStrictly: true }"
-          placeholder="请选择归属地区"
-          clearable
-          style="width: 220px"
-          @change="handleDeptRegionChange"
-        />
-      </el-form-item>
-      <el-form-item label="产品名称" prop="productName">
-        <el-input
-          v-model="queryParams.productName"
-          placeholder="请输入产品名称"
-          clearable
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="生产厂家" prop="manufacturer">
-        <el-input
-          v-model="queryParams.manufacturer"
-          placeholder="请输入生产厂家"
-          clearable
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="服务商" prop="serviceProvider">
-        <el-input
-          v-model="queryParams.serviceProvider"
-          placeholder="请输入服务商"
-          clearable
-          @keyup.enter="handleQuery"
-        />
-      </el-form-item>
       <el-form-item label="生产日期" prop="productionDate">
         <el-date-picker
           v-model="queryParams.productionDate"
@@ -113,6 +35,84 @@
           type="date"
           value-format="YYYY-MM-DD"
           placeholder="请选择报废日期"
+        />
+      </el-form-item>
+      <el-form-item label="归属地区" prop="deptRegion">
+        <el-cascader
+          v-model="queryParams.deptRegion"
+          :options="regionData"
+          :props="{ checkStrictly: true }"
+          placeholder="请选择归属地区"
+          clearable
+          style="width: 220px"
+          @change="handleDeptRegionChange"
+        />
+      </el-form-item>
+      <el-form-item label="所属单位" prop="deptId">
+        <el-tree-select
+          v-model="queryParams.deptId"
+          :data="deptOptions"
+          :props="{ value: 'id', label: 'label', children: 'children' }"
+          value-key="id"
+          placeholder="请选择所属单位"
+          clearable
+          check-strictly
+        />
+      </el-form-item>
+      <el-form-item label="标志明码" prop="labelCode">
+        <el-input
+          v-model="queryParams.labelCode"
+          placeholder="请输入标志明码"
+          clearable
+          @keyup.enter="handleQuery"
+        />
+      </el-form-item>
+      <el-form-item label="规格型号" prop="specification">
+        <el-input
+          v-model="queryParams.specification"
+          placeholder="请输入规格型号"
+          clearable
+          @keyup.enter="handleQuery"
+        />
+      </el-form-item>
+      <el-form-item label="传感器ID" prop="sensorId">
+        <el-input
+          v-model="queryParams.sensorId"
+          placeholder="请输入传感器ID"
+          clearable
+          @keyup.enter="handleQuery"
+        />
+      </el-form-item>
+      <el-form-item label="传感器编号" prop="sensorCode">
+        <el-input
+          v-model="queryParams.sensorCode"
+          placeholder="请输入传感器编号"
+          clearable
+          @keyup.enter="handleQuery"
+        />
+      </el-form-item>
+      <el-form-item label="产品名称" prop="productName">
+        <el-input
+          v-model="queryParams.productName"
+          placeholder="请输入产品名称"
+          clearable
+          @keyup.enter="handleQuery"
+        />
+      </el-form-item>
+      <el-form-item label="生产厂家" prop="manufacturer">
+        <el-input
+          v-model="queryParams.manufacturer"
+          placeholder="请输入生产厂家"
+          clearable
+          @keyup.enter="handleQuery"
+        />
+      </el-form-item>
+      <el-form-item label="服务商" prop="serviceProvider">
+        <el-input
+          v-model="queryParams.serviceProvider"
+          placeholder="请输入服务商"
+          clearable
+          @keyup.enter="handleQuery"
         />
       </el-form-item>
       <el-form-item label="消防点ID" prop="firePointId">
@@ -194,14 +194,14 @@
           <span>{{ scope.row.externalCompanyName || '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="归属单位" align="center" prop="deptName" :show-overflow-tooltip="true">
-        <template #default="scope">
-          <span>{{ scope.row.deptName || '-' }}</span>
-        </template>
-      </el-table-column>
       <el-table-column label="归属地区" align="center" min-width="180" :show-overflow-tooltip="true">
         <template #default="scope">
           <span>{{ formatDeptRegion(scope.row) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="所属单位" align="center" prop="deptName" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <span>{{ scope.row.deptName || '-' }}</span>
         </template>
       </el-table-column>
       <el-table-column label="灭火器ID" align="center" prop="extinguisherId" />
@@ -267,13 +267,13 @@
         <el-form-item label="传感器编号" prop="sensorCode">
           <el-input v-model="form.sensorCode" placeholder="请输入传感器编号" />
         </el-form-item>
-        <el-form-item label="所属部门" prop="deptId">
+        <el-form-item label="所属单位" prop="deptId">
           <el-tree-select
             v-model="form.deptId"
             :data="deptOptions"
             :props="{ value: 'id', label: 'label', children: 'children' }"
             value-key="id"
-            placeholder="请选择所属部门"
+            placeholder="请选择所属单位"
             clearable
             check-strictly
           />
@@ -402,9 +402,12 @@ const data = reactive({
 const { queryParams, form, rules } = toRefs(data)
 
 /** 查询部门下拉树结构 */
-function getDeptTree() {
-  deptTreeSelect().then(response => {
-    deptOptions.value = response.data
+function getDeptTree(validateDept = false) {
+  deptTreeSelect(buildDeptTreeParams()).then(response => {
+    deptOptions.value = response.data || []
+    if (validateDept && queryParams.value.deptId && !containsDept(deptOptions.value, queryParams.value.deptId)) {
+      queryParams.value.deptId = null
+    }
   })
 }
 
@@ -423,11 +426,24 @@ function buildQueryParams() {
   return params
 }
 
+function buildDeptTreeParams() {
+  return {
+    province: queryParams.value.deptProvince,
+    city: queryParams.value.deptCity,
+    area: queryParams.value.deptArea
+  }
+}
+
+function containsDept(nodes, deptId) {
+  return nodes.some(node => String(node.id) === String(deptId) || containsDept(node.children || [], deptId))
+}
+
 function handleDeptRegionChange(value) {
   const region = value || []
   queryParams.value.deptProvince = region[0] || null
   queryParams.value.deptCity = region[1] || null
   queryParams.value.deptArea = region[2] || null
+  getDeptTree(true)
 }
 
 function clearDeptRegionQuery() {
@@ -435,6 +451,7 @@ function clearDeptRegionQuery() {
   queryParams.value.deptProvince = null
   queryParams.value.deptCity = null
   queryParams.value.deptArea = null
+  getDeptTree(true)
 }
 
 function formatDeptRegion(row) {
