@@ -218,91 +218,110 @@
       </template>
     </el-dialog>
 
-    <el-dialog :title="title" v-model="open" width="500px" append-to-body>
-      <el-form ref="extinguisherRef" :model="form" :rules="rules" label-width="88px">
-        <el-form-item label="标志明码" prop="labelCode">
-          <el-input v-model="form.labelCode" placeholder="请输入标志明码" />
-        </el-form-item>
-        <el-form-item label="规格型号" prop="specification">
-          <el-input v-model="form.specification" placeholder="请输入规格型号" />
-        </el-form-item>
-        <el-form-item label="传感器ID" prop="sensorId">
-          <el-input v-model="form.sensorId" placeholder="请输入传感器ID" />
-        </el-form-item>
-        <el-form-item label="传感器编号" prop="sensorCode">
-          <el-input v-model="form.sensorCode" placeholder="请输入传感器编号" />
-        </el-form-item>
-        <el-form-item label="所属单位" prop="deptId">
-          <el-tree-select
-            v-model="form.deptId"
-            :data="deptOptions"
-            :props="{ value: 'id', label: 'label', children: 'children' }"
-            value-key="id"
-            placeholder="请选择所属单位"
-            clearable
-            check-strictly
-          />
-        </el-form-item>
-        <el-form-item label="产品名称" prop="productName">
-          <el-input v-model="form.productName" placeholder="请输入产品名称" />
-        </el-form-item>
-        <el-form-item label="生产厂家" prop="manufacturer">
-          <el-input v-model="form.manufacturer" placeholder="请输入生产厂家" />
-        </el-form-item>
-        <el-form-item label="服务商" prop="serviceProvider">
-          <el-input v-model="form.serviceProvider" placeholder="请输入服务商" />
-        </el-form-item>
-        <el-form-item label="生产日期" prop="productionDate">
-          <el-date-picker
-            v-model="form.productionDate"
-            clearable
-            type="date"
-            value-format="YYYY-MM-DD"
-            placeholder="请选择生产日期"
-          />
-        </el-form-item>
-        <el-form-item label="检验日期" prop="inspectionDate">
-          <el-date-picker
-            v-model="form.inspectionDate"
-            clearable
-            type="date"
-            value-format="YYYY-MM-DD"
-            placeholder="请选择检验日期"
-          />
-        </el-form-item>
-        <el-form-item label="有效期至" prop="expiryDate">
-          <el-date-picker
-            v-model="form.expiryDate"
-            clearable
-            type="date"
-            value-format="YYYY-MM-DD"
-            placeholder="请选择有效期至"
-          />
-        </el-form-item>
-        <el-form-item label="报废日期" prop="scrapDate">
-          <el-date-picker
-            v-model="form.scrapDate"
-            clearable
-            type="date"
-            value-format="YYYY-MM-DD"
-            placeholder="请选择报废日期"
-          />
-        </el-form-item>
-        <el-form-item label="消防点ID" prop="firePointId">
-          <el-input v-model="form.firePointId" placeholder="请输入消防点ID" />
-        </el-form-item>
-        <el-form-item label="安装位置" prop="installLocation">
-          <el-input v-model="form.installLocation" placeholder="请输入安装位置" />
-        </el-form-item>
-        <el-form-item label="二维码" prop="qrCode">
-          <el-input v-model="form.qrCode" placeholder="请输入二维码" />
-        </el-form-item>
-        <el-form-item label="备注" prop="remark">
-          <el-input v-model="form.remark" type="textarea" placeholder="请输入备注" />
-        </el-form-item>
-        <el-form-item label="删除标志" prop="delFlag">
-          <el-input v-model="form.delFlag" placeholder="请输入删除标志" />
-        </el-form-item>
+    <el-dialog :title="title" v-model="open" width="780px" append-to-body>
+      <el-form class="extinguisher-edit-form" ref="extinguisherRef" :model="form" :rules="rules" label-width="110px">
+        <div class="form-section-title">基础信息</div>
+        <div class="extinguisher-form-grid">
+          <el-form-item label="标志明码" prop="labelCode">
+            <el-input v-model="form.labelCode" placeholder="请输入标志明码" />
+          </el-form-item>
+          <el-form-item label="规格型号" prop="specification">
+            <el-input v-model="form.specification" placeholder="请输入规格型号" />
+          </el-form-item>
+          <el-form-item label="状态" prop="status">
+            <el-select v-model="form.status" placeholder="请选择状态" clearable>
+              <el-option
+                v-for="item in extinguisherStatusOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="产品名称" prop="productName">
+            <el-input v-model="form.productName" placeholder="请输入产品名称" />
+          </el-form-item>
+        </div>
+
+        <div class="form-section-title">归属关系</div>
+        <div class="extinguisher-form-grid">
+          <el-form-item class="form-span-2" label="所属单位" prop="deptId">
+            <el-tree-select
+              v-model="form.deptId"
+              :data="deptOptions"
+              :props="{ value: 'id', label: 'label', children: 'children' }"
+              value-key="id"
+              placeholder="请选择所属单位"
+              clearable
+              check-strictly
+            />
+          </el-form-item>
+          <el-form-item label="传感器编号" prop="sensorCode">
+            <el-input v-model="form.sensorCode" placeholder="请输入传感器编号" />
+          </el-form-item>
+          <el-form-item label="消防点名称">
+            <el-input v-model="form.firePointName" placeholder="暂无消防点映射" disabled />
+          </el-form-item>
+        </div>
+
+        <div class="form-section-title">生产与维护</div>
+        <div class="extinguisher-form-grid">
+          <el-form-item label="生产厂家" prop="manufacturer">
+            <el-input v-model="form.manufacturer" placeholder="请输入生产厂家" />
+          </el-form-item>
+          <el-form-item label="服务商" prop="serviceProvider">
+            <el-input v-model="form.serviceProvider" placeholder="请输入服务商" />
+          </el-form-item>
+          <el-form-item label="生产日期" prop="productionDate">
+            <el-date-picker
+              v-model="form.productionDate"
+              clearable
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="请选择生产日期"
+            />
+          </el-form-item>
+          <el-form-item label="检验日期" prop="inspectionDate">
+            <el-date-picker
+              v-model="form.inspectionDate"
+              clearable
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="请选择检验日期"
+            />
+          </el-form-item>
+          <el-form-item label="有效期至" prop="expiryDate">
+            <el-date-picker
+              v-model="form.expiryDate"
+              clearable
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="请选择有效期至"
+            />
+          </el-form-item>
+          <el-form-item label="报废日期" prop="scrapDate">
+            <el-date-picker
+              v-model="form.scrapDate"
+              clearable
+              type="date"
+              value-format="YYYY-MM-DD"
+              placeholder="请选择报废日期"
+            />
+          </el-form-item>
+        </div>
+
+        <div class="form-section-title">安装与备注</div>
+        <div class="extinguisher-form-grid">
+          <el-form-item class="form-span-2" label="安装位置" prop="installLocation">
+            <el-input v-model="form.installLocation" placeholder="请输入安装位置" />
+          </el-form-item>
+          <el-form-item class="form-span-2" label="二维码" prop="qrCode">
+            <el-input v-model="form.qrCode" type="textarea" :rows="2" placeholder="请输入二维码" />
+          </el-form-item>
+          <el-form-item class="form-span-2" label="备注" prop="remark">
+            <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入备注" />
+          </el-form-item>
+        </div>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
@@ -445,9 +464,10 @@ function reset() {
     expiryDate: null,
     scrapDate: null,
     firePointId: null,
+    firePointName: null,
     installLocation: null,
     qrCode: null,
-    status: null,
+    status: '0',
     createBy: null,
     createTime: null,
     updateBy: null,
@@ -622,9 +642,57 @@ getDeptTree()
   margin-left: 0;
 }
 
+.extinguisher-edit-form {
+  padding-right: 4px;
+}
+
+.form-section-title {
+  margin: 4px 0 14px;
+  padding-left: 8px;
+  border-left: 3px solid var(--el-color-primary);
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.form-section-title:not(:first-child) {
+  margin-top: 20px;
+}
+
+.extinguisher-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 18px;
+}
+
+.extinguisher-form-grid :deep(.el-form-item) {
+  margin-bottom: 16px;
+}
+
+.extinguisher-form-grid :deep(.el-select),
+.extinguisher-form-grid :deep(.el-date-editor),
+.extinguisher-form-grid :deep(.el-tree-select) {
+  width: 100%;
+}
+
+.form-span-2 {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 1500px) {
   .extinguisher-query-form {
     grid-template-columns: repeat(2, max-content);
+  }
+}
+
+@media (max-width: 768px) {
+  .extinguisher-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-span-2 {
+    grid-column: auto;
   }
 }
 </style>
