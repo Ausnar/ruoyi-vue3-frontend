@@ -144,6 +144,7 @@
       <el-table-column label="操作" align="center" width="80" class-name="small-padding fixed-width">
         <template #default="scope">
           <div class="table-actions">
+            <el-button link type="primary" icon="View" @click="handleDetail(scope.row)" v-hasPermi="['manage:sensor:query']">详情</el-button>
             <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['manage:sensor:edit']">修改</el-button>
             <el-button link type="success" icon="TrendCharts" @click="handleHistory(scope.row)" v-hasPermi="['manage:sensor:query']">历史</el-button>
             <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['manage:sensor:remove']">删除</el-button>
@@ -160,58 +161,108 @@
       @pagination="getList"
     />
 
+    <el-dialog title="传感器详情" v-model="detailOpen" width="760px" append-to-body>
+      <el-descriptions :column="2" border>
+        <el-descriptions-item label="传感器编号">{{ detailForm.sensorCode || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="状态">
+          <dict-tag :options="sys_job_status" :value="detailForm.status" />
+        </el-descriptions-item>
+        <el-descriptions-item label="归属地区">{{ formatDeptRegion(detailForm) }}</el-descriptions-item>
+        <el-descriptions-item label="所属单位">{{ detailForm.deptName || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="外部单位">{{ detailForm.externalCompanyName || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="来源单位">{{ detailForm.sourceDeptName || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="网关编号">{{ detailForm.gatewayCode || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="MAC">{{ detailForm.mac || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="压力值(MPa)">{{ formatNullable(detailForm.pressure) }}</el-descriptions-item>
+        <el-descriptions-item label="温度值(℃)">{{ formatNullable(detailForm.temperature) }}</el-descriptions-item>
+        <el-descriptions-item label="电量(%)">{{ formatNullable(detailForm.batteryLevel) }}</el-descriptions-item>
+        <el-descriptions-item label="信号强度">{{ formatNullable(detailForm.signalStrength) }}</el-descriptions-item>
+        <el-descriptions-item label="最后在线时间">{{ parseTime(detailForm.lastOnlineTime) || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="最后同步时间">{{ parseTime(detailForm.lastSyncTime) || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="同步状态">
+          <el-tag :type="syncStatusTagType(detailForm.syncStatus)">{{ formatSyncStatus(detailForm.syncStatus) }}</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="备注">{{ detailForm.remark || '-' }}</el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="detailOpen = false">关闭</el-button>
+        </div>
+      </template>
+    </el-dialog>
+
     <!-- 添加或修改传感器信息对话框 -->
-    <el-dialog :title="title" v-model="open" width="500px" append-to-body>
-      <el-form ref="sensorRef" :model="form" :rules="rules" label-width="80px">
-        <el-form-item label="传感器编号" prop="sensorCode">
-          <el-input v-model="form.sensorCode" placeholder="请输入传感器编号" />
-        </el-form-item>
-        <el-form-item label="所属单位" prop="deptId">
-          <el-tree-select
-            v-model="form.deptId"
-            :data="deptOptions"
-            :props="{ value: 'id', label: 'label', children: 'children' }"
-            value-key="id"
-            placeholder="请选择所属单位"
-            clearable
-            check-strictly
-          />
-        </el-form-item>
-        <el-form-item label="网关编号" prop="gatewayCode">
-          <el-input v-model="form.gatewayCode" placeholder="请输入网关编号" />
-        </el-form-item>
-        <el-form-item label="压力值(MPa)" prop="pressure">
-          <el-input v-model="form.pressure" placeholder="请输入压力值(MPa)" />
-        </el-form-item>
-        <el-form-item label="温度值(℃)" prop="temperature">
-          <el-input v-model="form.temperature" placeholder="请输入温度值(℃)" />
-        </el-form-item>
-        <el-form-item label="电量(%)" prop="batteryLevel">
-          <el-input v-model="form.batteryLevel" placeholder="请输入电量(%)" />
-        </el-form-item>
-        <el-form-item label="最后在线时间" prop="lastOnlineTime">
-          <el-date-picker clearable
-            v-model="form.lastOnlineTime"
-            type="date"
-            value-format="YYYY-MM-DD"
-            placeholder="请选择最后在线时间">
-          </el-date-picker>
-        </el-form-item>
-        <el-form-item label="状态(0正常 1异常 2离线)" prop="status">
-          <el-radio-group v-model="form.status">
-            <el-radio
-              v-for="dict in sys_job_status"
-              :key="dict.value"
-              :label="dict.value"
-            >{{dict.label}}</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="备注" prop="remark">
-          <el-input v-model="form.remark" type="textarea" placeholder="请输入内容" />
-        </el-form-item>
-        <el-form-item label="删除标志(0存在 2删除)" prop="delFlag">
-          <el-input v-model="form.delFlag" placeholder="请输入删除标志(0存在 2删除)" />
-        </el-form-item>
+    <el-dialog :title="title" v-model="open" width="780px" append-to-body>
+      <el-form class="sensor-edit-form" ref="sensorRef" :model="form" :rules="rules" label-width="112px">
+        <div class="form-section-title">基础信息</div>
+        <div class="sensor-form-grid">
+          <el-form-item label="传感器编号" prop="sensorCode">
+            <el-input v-model="form.sensorCode" placeholder="请输入传感器编号" />
+          </el-form-item>
+          <el-form-item label="状态" prop="status">
+            <el-select v-model="form.status" placeholder="请选择状态" clearable>
+              <el-option
+                v-for="dict in sys_job_status"
+                :key="dict.value"
+                :label="dict.label"
+                :value="dict.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="网关编号" prop="gatewayCode">
+            <el-input v-model="form.gatewayCode" placeholder="请输入网关编号" />
+          </el-form-item>
+          <el-form-item label="MAC" prop="mac">
+            <el-input v-model="form.mac" placeholder="请输入MAC" />
+          </el-form-item>
+        </div>
+
+        <div class="form-section-title">归属关系</div>
+        <div class="sensor-form-grid">
+          <el-form-item class="form-span-2" label="所属单位" prop="deptId">
+            <el-tree-select
+              v-model="form.deptId"
+              :data="deptOptions"
+              :props="{ value: 'id', label: 'label', children: 'children' }"
+              value-key="id"
+              placeholder="请选择所属单位"
+              clearable
+              check-strictly
+            />
+          </el-form-item>
+        </div>
+
+        <div class="form-section-title">运行数据</div>
+        <div class="sensor-form-grid">
+          <el-form-item label="压力值(MPa)" prop="pressure">
+            <el-input-number v-model="form.pressure" :precision="2" controls-position="right" placeholder="请输入压力值" />
+          </el-form-item>
+          <el-form-item label="温度值(℃)" prop="temperature">
+            <el-input-number v-model="form.temperature" :precision="1" controls-position="right" placeholder="请输入温度值" />
+          </el-form-item>
+          <el-form-item label="电量(%)" prop="batteryLevel">
+            <el-input-number v-model="form.batteryLevel" :min="0" :max="100" :precision="0" controls-position="right" placeholder="请输入电量" />
+          </el-form-item>
+          <el-form-item label="信号强度" prop="signalStrength">
+            <el-input-number v-model="form.signalStrength" :precision="0" controls-position="right" placeholder="请输入信号强度" />
+          </el-form-item>
+          <el-form-item class="form-span-2" label="最后在线时间" prop="lastOnlineTime">
+            <el-date-picker
+              v-model="form.lastOnlineTime"
+              clearable
+              type="datetime"
+              value-format="YYYY-MM-DD HH:mm:ss"
+              placeholder="请选择最后在线时间"
+            />
+          </el-form-item>
+        </div>
+
+        <div class="form-section-title">同步维护</div>
+        <div class="sensor-form-grid">
+          <el-form-item class="form-span-2" label="备注" prop="remark">
+            <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入备注" />
+          </el-form-item>
+        </div>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
@@ -234,6 +285,8 @@ const { sys_job_status } = proxy.useDict('sys_job_status')
 
 const sensorList = ref([])
 const open = ref(false)
+const detailOpen = ref(false)
+const detailForm = ref({})
 const loading = ref(true)
 const showSearch = ref(true)
 const ids = ref([])
@@ -324,6 +377,30 @@ function formatDeptRegion(row) {
   return [row.deptProvince, row.deptCity, row.deptArea].filter(Boolean).join(' / ') || '-'
 }
 
+function formatNullable(value) {
+  return value === null || value === undefined || value === '' ? '-' : value
+}
+
+function formatSyncStatus(status) {
+  const statusMap = {
+    synced: '已同步',
+    failed: '同步异常',
+    unbound: '未绑定',
+    manual: '手工维护'
+  }
+  return statusMap[status] || status || '未设置'
+}
+
+function syncStatusTagType(status) {
+  const typeMap = {
+    synced: 'success',
+    failed: 'danger',
+    unbound: 'warning',
+    manual: 'info'
+  }
+  return typeMap[status] || 'info'
+}
+
 // 取消按钮
 function cancel() {
   open.value = false
@@ -337,11 +414,13 @@ function reset() {
     sensorCode: null,
     deptId: null,
     gatewayCode: null,
+    mac: null,
     pressure: null,
     temperature: null,
     batteryLevel: null,
+    signalStrength: null,
     lastOnlineTime: null,
-    status: null,
+    status: '0',
     createBy: null,
     createTime: null,
     updateBy: null,
@@ -378,6 +457,15 @@ function handleAdd() {
   reset()
   open.value = true
   title.value = "添加传感器信息"
+}
+
+function handleDetail(row) {
+  detailForm.value = row || {}
+  detailOpen.value = true
+
+  getSensor(row.sensorId).then(response => {
+    detailForm.value = response.data || row || {}
+  }).catch(() => {})
 }
 
 /** 修改按钮操作 */
@@ -522,9 +610,58 @@ getDeptTree()
   margin-left: 0;
 }
 
+.sensor-edit-form {
+  padding-right: 4px;
+}
+
+.form-section-title {
+  margin: 4px 0 14px;
+  padding-left: 8px;
+  border-left: 3px solid var(--el-color-primary);
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.form-section-title:not(:first-child) {
+  margin-top: 20px;
+}
+
+.sensor-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 18px;
+}
+
+.sensor-form-grid :deep(.el-form-item) {
+  margin-bottom: 16px;
+}
+
+.sensor-form-grid :deep(.el-select),
+.sensor-form-grid :deep(.el-date-editor),
+.sensor-form-grid :deep(.el-input-number),
+.sensor-form-grid :deep(.el-tree-select) {
+  width: 100%;
+}
+
+.form-span-2 {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 1500px) {
   .sensor-query-form {
     grid-template-columns: repeat(2, max-content);
+  }
+}
+
+@media (max-width: 768px) {
+  .sensor-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-span-2 {
+    grid-column: auto;
   }
 }
 </style>
