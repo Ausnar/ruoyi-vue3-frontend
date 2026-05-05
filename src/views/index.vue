@@ -10,7 +10,9 @@
           </h1>
           <p class="welcome-subtitle">
             {{ greeting }}，{{ userName }}！
-            <template v-if="canViewContractAnalysis">服务 {{ stats.contractUserCount }} 家合同用户</template>
+            <template v-if="canViewContractAnalysis">
+              服务 {{ stats.paidContractCount }} 家正式合同用户，{{ stats.trialContractCount }} 家试用合同用户
+            </template>
           </p>
         </div>
         <div class="time-display">
@@ -22,21 +24,41 @@
 
     <!-- 统计卡片 -->
     <el-row :gutter="20" class="stats-row">
-      <!-- 合同用户卡片 -->
+      <!-- 正式合同用户卡片 -->
       <el-col v-if="canViewContractAnalysis" :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
-        <div class="stat-card card-contract" @click="navigateTo('/contract-analysis')">
+        <div class="stat-card card-contract-paid" @click="navigateToContractAnalysis('paid')">
           <div class="stat-icon">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M20 21V19C20 17.9391 19.5786 16.9217 18.8284 16.1716C18.0783 15.4214 17.0609 15 16 15H8C6.93913 15 5.92172 15.4214 5.17157 16.1716C4.42143 16.9217 4 17.9391 4 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M7 3H17C18.1 3 19 3.9 19 5V19C19 20.1 18.1 21 17 21H7C5.9 21 5 20.1 5 19V5C5 3.9 5.9 3 7 3Z" stroke="currentColor" stroke-width="2"/>
+              <path d="M8.5 8H15.5M8.5 12H15.5M8.5 16H12.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
           </div>
           <div class="stat-content">
-            <div class="stat-label">合同用户</div>
-            <div class="stat-value">{{ stats.contractUserCount }}</div>
+            <div class="stat-label">正式合同用户</div>
+            <div class="stat-value">{{ stats.paidContractCount }}</div>
             <div class="stat-trend trend-up">
-              <i class="el-icon-user"></i>
+              <i class="el-icon-success"></i>
               家
+            </div>
+          </div>
+        </div>
+      </el-col>
+
+      <!-- 试用合同用户卡片 -->
+      <el-col v-if="canViewContractAnalysis" :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
+        <div class="stat-card card-contract-trial" @click="navigateToContractAnalysis('trial')">
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3L19 6V11C19 15.6 16.2 19.7 12 21C7.8 19.7 5 15.6 5 11V6L12 3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+              <path d="M9 12L11 14L15.5 9.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="stat-content">
+            <div class="stat-label">试用合同用户</div>
+            <div class="stat-value">{{ stats.trialContractCount }}</div>
+            <div class="stat-trend trend-neutral">
+              <i class="el-icon-user"></i>
+              转化池
             </div>
           </div>
         </div>
@@ -108,8 +130,20 @@
             <!-- 地图图例 -->
             <div class="map-legend" v-if="mapMode !== 'firePoint'">
               <div class="legend-item">
-                <span class="legend-marker legend-marker--primary"></span>
-                <span class="legend-text">合同单位</span>
+                <span class="legend-marker legend-marker--contract-paid"></span>
+                <span class="legend-text">正式合同</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-marker legend-marker--contract-trial"></span>
+                <span class="legend-text">试用合同</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-marker legend-marker--contract-mixed"></span>
+                <span class="legend-text">混合合同</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-marker legend-marker--contract-unset"></span>
+                <span class="legend-text">未设置</span>
               </div>
             </div>
             <div class="map-legend" v-else>
@@ -223,7 +257,8 @@ export default {
       currentDate: '',
       currentTime: '',
       stats: {
-        contractUserCount: 0,
+        paidContractCount: 0,
+        trialContractCount: 0,
         alarmPending: 0,
         alarmPendingHigh: 0,
         maintenanceMonth: 0,
@@ -334,13 +369,17 @@ export default {
       // 获取合同用户数量
       if (this.canViewContractAnalysis) {
         getContractOverview().then(response => {
-          this.stats.contractUserCount = Number(response.data?.total || 0)
+          const data = response.data || {}
+          this.stats.paidContractCount = Number(data.paidCount || 0)
+          this.stats.trialContractCount = Number(data.trialCount || 0)
         }).catch(error => {
           console.error('获取合同用户数据失败：', error)
-          this.stats.contractUserCount = 0
+          this.stats.paidContractCount = 0
+          this.stats.trialContractCount = 0
         })
       } else {
-        this.stats.contractUserCount = 0
+        this.stats.paidContractCount = 0
+        this.stats.trialContractCount = 0
       }
 
       if (this.canViewMapCard) {
@@ -404,6 +443,7 @@ export default {
         info: isFirePoint ? (node.location || node.firePointName) : [node.province, node.city, node.area].filter(Boolean).join('-'),
         deptId: node.deptId,
         deptName: node.deptName,
+        contractType: this.normalizeDeptContractType(node.contractType),
         firePointId: node.firePointId,
         firePointName: node.firePointName,
         leader: node.leader,
@@ -564,7 +604,9 @@ export default {
 
         // 创建新的标记数据
         const geometries = this.productLocations.map(loc => {
-          const styleId = loc.nodeType === 'firePoint' ? this._getStyleIdByStatus(loc.status) : 'dept'
+          const styleId = loc.nodeType === 'firePoint'
+            ? this._getStyleIdByStatus(loc.status)
+            : this.getDeptMarkerStyleId(loc.contractType)
           return {
             id: loc.id,
             styleId: styleId,
@@ -578,6 +620,7 @@ export default {
               nodeType: loc.nodeType,
               deptId: loc.deptId,
               deptName: loc.deptName,
+              contractType: loc.contractType,
               firePointId: loc.firePointId,
               firePointName: loc.firePointName,
               leader: loc.leader,
@@ -606,12 +649,30 @@ export default {
         this.markerLayer = new TMap.MultiMarker({
           map: this.map,
           styles: {
-            // 部门标记样式（蓝色大楼图标）
-            'dept': new TMap.MarkerStyle({
+            // 部门标记样式（按合同性质区分）
+            'dept-paid': new TMap.MarkerStyle({
               width: 32,
               height: 40,
               anchor: { x: 16, y: 40 },
               src: this._createMarkerIcon('#409EFF', true)
+            }),
+            'dept-trial': new TMap.MarkerStyle({
+              width: 32,
+              height: 40,
+              anchor: { x: 16, y: 40 },
+              src: this._createMarkerIcon('#67C23A', true)
+            }),
+            'dept-mixed': new TMap.MarkerStyle({
+              width: 32,
+              height: 40,
+              anchor: { x: 16, y: 40 },
+              src: this._createMarkerIcon('#8B5CF6', true)
+            }),
+            'dept-unset': new TMap.MarkerStyle({
+              width: 32,
+              height: 40,
+              anchor: { x: 16, y: 40 },
+              src: this._createMarkerIcon('#909399', true)
             }),
             // 设备标记样式
             'normal': new TMap.MarkerStyle({
@@ -729,6 +790,9 @@ export default {
           <div style="margin-bottom:16px;">
             <div style="${POPUP_STYLES.label}">
               <span style="${POPUP_STYLES.labelSecondary}">位置：</span>${props.info || '-'}
+            </div>
+            <div style="${POPUP_STYLES.label}">
+              <span style="${POPUP_STYLES.labelSecondary}">合同性质：</span>${this.getDeptContractTypeText(props.contractType)}
             </div>
             <div style="${POPUP_STYLES.label}">
               <span style="${POPUP_STYLES.labelSecondary}">负责人：</span>${props.leader || '-'}
@@ -1028,6 +1092,30 @@ export default {
       return map[status] || 'normal'
     },
 
+    normalizeDeptContractType(contractType) {
+      const map = {
+        paid: 'paid',
+        trial: 'trial',
+        mixed: 'mixed',
+        unset: 'unset'
+      }
+      return map[contractType] || 'unset'
+    },
+
+    getDeptMarkerStyleId(contractType) {
+      return `dept-${this.normalizeDeptContractType(contractType)}`
+    },
+
+    getDeptContractTypeText(contractType) {
+      const map = {
+        paid: '正式合同',
+        trial: '试用合同',
+        mixed: '混合合同',
+        unset: '未设置'
+      }
+      return map[this.normalizeDeptContractType(contractType)] || '未设置'
+    },
+
     _createMarkerIcon(color, isDept = false) {
       let svg
       if (isDept) {
@@ -1096,6 +1184,13 @@ export default {
 
     navigateTo(path) {
       this.$router.push(path)
+    },
+
+    navigateToContractAnalysis(contractType) {
+      this.$router.push({
+        path: '/contract-analysis',
+        query: { contractType }
+      })
     }
   }
 }
@@ -1292,7 +1387,7 @@ export default {
     }
   }
 
-  &.card-contract {
+  &.card-contract-paid {
     &::before {
       background: var(--color-primary);
     }
@@ -1300,6 +1395,17 @@ export default {
     .stat-icon {
       background: var(--color-primary-bg);
       color: var(--color-primary);
+    }
+  }
+
+  &.card-contract-trial {
+    &::before {
+      background: var(--color-success);
+    }
+
+    .stat-icon {
+      background: var(--color-success-bg);
+      color: var(--color-success);
     }
   }
 
@@ -1422,6 +1528,10 @@ export default {
       &--warning { background: var(--color-warning); }
       &--danger { background: var(--color-danger); }
       &--info { background: var(--color-info); }
+      &--contract-paid { background: var(--color-primary); }
+      &--contract-trial { background: var(--color-success); }
+      &--contract-mixed { background: #8b5cf6; }
+      &--contract-unset { background: var(--color-info); }
     }
 
     .legend-text {

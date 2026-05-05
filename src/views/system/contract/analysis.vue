@@ -131,7 +131,16 @@ export default {
       ]
     }
   },
+  watch: {
+    '$route.query.contractType'() {
+      const changed = this.applyRouteContractType()
+      if (changed) {
+        this.loadStatistics()
+      }
+    }
+  },
   mounted() {
+    this.applyRouteContractType()
     this.loadOverview()
     this.loadStatistics()
     window.addEventListener('resize', this.handleResize)
@@ -146,6 +155,16 @@ export default {
     this.disposeChart(this.cityChart)
   },
   methods: {
+    applyRouteContractType() {
+      const routeType = this.$route.query.contractType
+      const validTypes = this.contractTypeOptions.map(item => item.value)
+      const nextType = validTypes.includes(routeType) ? routeType : 'all'
+      if (this.activeContractType === nextType) {
+        return false
+      }
+      this.activeContractType = nextType
+      return true
+    },
     normalizeContractType() {
       return this.activeContractType === 'all' ? undefined : this.activeContractType
     },
