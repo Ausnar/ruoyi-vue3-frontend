@@ -35,6 +35,14 @@ export function updateExtinguisher(data) {
   })
 }
 
+// 按标志明码刷新灭火器预警资料
+export function refreshExtinguisherProfile(extinguisherId) {
+  return request({
+    url: '/manage/extinguisher/' + extinguisherId + '/profile/refresh',
+    method: 'put'
+  })
+}
+
 // 删除灭火器信息
 export function delExtinguisher(extinguisherId) {
   return request({

@@ -126,6 +126,11 @@
       <el-table-column label="标志明码" align="center" prop="labelCode" min-width="140" :show-overflow-tooltip="true" />
       <el-table-column label="产品名称" align="center" prop="productName" min-width="120" :show-overflow-tooltip="true" />
       <el-table-column label="规格型号" align="center" prop="specification" min-width="120" :show-overflow-tooltip="true" />
+      <el-table-column label="灭火器类型" align="center" prop="extinguisherType" min-width="120">
+        <template #default="scope">
+          <span>{{ formatExtinguisherType(scope.row.extinguisherType) }}</span>
+        </template>
+      </el-table-column>
       <el-table-column label="归属地区" align="center" min-width="180" :show-overflow-tooltip="true">
         <template #default="scope">
           <span>{{ formatDeptRegion(scope.row) }}</span>
@@ -182,11 +187,23 @@
       @pagination="getList"
     />
 
-    <el-dialog title="灭火器详情" v-model="detailOpen" width="760px" append-to-body>
+    <el-dialog title="灭火器详情" v-model="detailOpen" width="820px" append-to-body>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="标志明码">{{ detailForm.labelCode || '-' }}</el-descriptions-item>
         <el-descriptions-item label="产品名称">{{ detailForm.productName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="规格型号">{{ detailForm.specification || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="灭火器类型">{{ formatExtinguisherType(detailForm.extinguisherType) }}</el-descriptions-item>
+        <el-descriptions-item label="灭火器形式">{{ formatExtinguisherForm(detailForm.extinguisherForm) }}</el-descriptions-item>
+        <el-descriptions-item label="执行标准">{{ detailForm.standardCode || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="使用温度范围">{{ formatTemperatureRange(detailForm.temperatureRange) }}</el-descriptions-item>
+        <el-descriptions-item label="资料来源">{{ formatProfileSource(detailForm.profileSource) }}</el-descriptions-item>
+        <el-descriptions-item label="资料同步状态">
+          <el-tag :type="profileSyncStatusTagType(detailForm.profileSyncStatus)">
+            {{ formatProfileSyncStatus(detailForm.profileSyncStatus) }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="资料同步时间">{{ parseTime(detailForm.profileSyncTime) || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="资料同步说明">{{ detailForm.profileSyncMessage || '-' }}</el-descriptions-item>
         <el-descriptions-item label="状态">
           <el-tag :type="extinguisherStatusTagType(detailForm.status)">
             {{ formatExtinguisherStatus(detailForm.status) }}
@@ -202,7 +219,7 @@
         <el-descriptions-item label="服务商">{{ detailForm.serviceProvider || '-' }}</el-descriptions-item>
         <el-descriptions-item label="生产日期">{{ parseTime(detailForm.productionDate, '{y}-{m}-{d}') || '-' }}</el-descriptions-item>
         <el-descriptions-item label="检验日期">{{ parseTime(detailForm.inspectionDate, '{y}-{m}-{d}') || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="有效期至">{{ parseTime(detailForm.expiryDate, '{y}-{m}-{d}') || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="到期时间">{{ parseTime(detailForm.expiryDate, '{y}-{m}-{d}') || '-' }}</el-descriptions-item>
         <el-descriptions-item label="报废日期">{{ parseTime(detailForm.scrapDate, '{y}-{m}-{d}') || '-' }}</el-descriptions-item>
         <el-descriptions-item label="同步状态">
           <el-tag :type="syncStatusTagType(detailForm.syncStatus)">{{ formatSyncStatus(detailForm.syncStatus) }}</el-tag>
@@ -264,8 +281,32 @@
           </el-form-item>
         </div>
 
-        <div class="form-section-title">生产与维护</div>
+        <div class="form-section-title form-section-with-action">
+          <span>生产与维护</span>
+          <el-button
+            type="primary"
+            plain
+            size="small"
+            icon="Refresh"
+            :loading="profileRefreshing"
+            :disabled="!form.extinguisherId || !form.labelCode"
+            @click="handleRefreshProfile"
+            v-hasPermi="['manage:extinguisher:edit']"
+          >同步标志明码资料</el-button>
+        </div>
         <div class="extinguisher-form-grid">
+          <el-form-item label="资料来源">
+            <el-input :model-value="formatProfileSource(form.profileSource)" disabled />
+          </el-form-item>
+          <el-form-item label="资料同步状态">
+            <el-input :model-value="formatProfileSyncStatus(form.profileSyncStatus)" disabled />
+          </el-form-item>
+          <el-form-item label="资料同步时间">
+            <el-input :model-value="parseTime(form.profileSyncTime) || '-'" disabled />
+          </el-form-item>
+          <el-form-item label="资料同步说明">
+            <el-input :model-value="form.profileSyncMessage || '-'" disabled />
+          </el-form-item>
           <el-form-item label="生产厂家" prop="manufacturer">
             <el-input v-model="form.manufacturer" placeholder="请输入生产厂家" />
           </el-form-item>
@@ -281,6 +322,44 @@
               placeholder="请选择生产日期"
             />
           </el-form-item>
+          <el-form-item label="灭火器类型" prop="extinguisherType">
+            <el-select v-model="form.extinguisherType" placeholder="请选择灭火器类型" clearable>
+              <el-option
+                v-for="item in extinguisherTypeOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="灭火器形式" prop="extinguisherForm">
+            <el-select v-model="form.extinguisherForm" placeholder="请选择灭火器形式" clearable>
+              <el-option
+                v-for="item in extinguisherFormOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="执行标准" prop="standardCode">
+            <el-input v-model="form.standardCode" placeholder="由生产日期和灭火器形式自动推导" disabled />
+          </el-form-item>
+          <el-form-item label="使用温度范围" prop="temperatureRange">
+            <el-select
+              v-model="form.temperatureRange"
+              placeholder="请选择使用温度范围"
+              :disabled="!temperatureRangeOptions.length"
+              clearable
+            >
+              <el-option
+                v-for="item in temperatureRangeOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+          </el-form-item>
           <el-form-item label="检验日期" prop="inspectionDate">
             <el-date-picker
               v-model="form.inspectionDate"
@@ -290,13 +369,14 @@
               placeholder="请选择检验日期"
             />
           </el-form-item>
-          <el-form-item label="有效期至" prop="expiryDate">
+          <el-form-item label="到期时间" prop="expiryDate">
             <el-date-picker
               v-model="form.expiryDate"
               clearable
               type="date"
               value-format="YYYY-MM-DD"
-              placeholder="请选择有效期至"
+              placeholder="由生产日期和灭火器类型自动推导"
+              disabled
             />
           </el-form-item>
           <el-form-item label="报废日期" prop="scrapDate">
@@ -333,7 +413,7 @@
   </div>
 </template>
 <script setup name="Extinguisher">
-import { listExtinguisher, getExtinguisher, delExtinguisher, addExtinguisher, updateExtinguisher } from "@/api/manage/extinguisher"
+import { listExtinguisher, getExtinguisher, delExtinguisher, addExtinguisher, updateExtinguisher, refreshExtinguisherProfile } from "@/api/manage/extinguisher"
 import { deptTreeSelect } from "@/api/system/user"
 import { regionData } from "@/utils/regionData"
 
@@ -352,6 +432,7 @@ const total = ref(0)
 const title = ref("")
 const deptOptions = ref([])
 const lastSyncTimeRange = ref([])
+const profileRefreshing = ref(false)
 const extinguisherStatusOptions = [
   { value: '0', label: '正常', type: 'success' },
   { value: '1', label: '待检', type: 'warning' },
@@ -359,6 +440,22 @@ const extinguisherStatusOptions = [
   { value: '3', label: '停用', type: 'info' },
   { value: '4', label: '报废', type: 'danger' }
 ]
+const extinguisherTypeOptions = [
+  { value: 'water_based', label: '水基型灭火器', serviceLifeYears: 6 },
+  { value: 'dry_powder', label: '干粉灭火器', serviceLifeYears: 10 },
+  { value: 'clean_gas', label: '洁净气体灭火器', serviceLifeYears: 10 },
+  { value: 'co2', label: '二氧化碳灭火器', serviceLifeYears: 12 }
+]
+const extinguisherFormOptions = [
+  { value: 'portable', label: '手提式' },
+  { value: 'wheeled', label: '推车式' }
+]
+const temperatureRangesByStandard = {
+  'GB 4351-2023': ['5~60', '-5~60', '-10~60', '-20~60', '-30~60', '-40~60', '-50~60'],
+  'GB 8109-2023': ['5~60', '-5~60', '-10~60', '-20~60', '-30~60', '-40~60', '-50~60'],
+  'GB 4351.1-2005': ['5~55', '0~55', '-10~55', '-20~55', '-30~55', '-40~55', '-55~55'],
+  'GB 8109-2005': ['5~55', '0~55', '-10~55', '-20~55', '-30~55', '-40~55', '-55~55']
+}
 
 const data = reactive({
   form: {},
@@ -383,6 +480,18 @@ const data = reactive({
 })
 
 const { queryParams, form, rules } = toRefs(data)
+const temperatureRangeOptions = computed(() => getTemperatureRangeOptions(form.value.standardCode))
+
+watch(
+  () => [
+    form.value.specification,
+    form.value.productName,
+    form.value.productionDate,
+    form.value.extinguisherType,
+    form.value.extinguisherForm
+  ],
+  () => completeWarningBusinessFields()
+)
 
 /** 查询部门下拉树结构 */
 function getDeptTree(validateDept = false) {
@@ -453,6 +562,14 @@ function reset() {
     extinguisherId: null,
     labelCode: null,
     specification: null,
+    extinguisherType: null,
+    extinguisherForm: null,
+    standardCode: null,
+    temperatureRange: null,
+    profileSource: null,
+    profileSyncTime: null,
+    profileSyncStatus: null,
+    profileSyncMessage: null,
     sensorId: null,
     sensorCode: null,
     deptId: null,
@@ -519,13 +636,38 @@ function handleUpdate(row) {
   const _extinguisherId = row.extinguisherId || ids.value
   getExtinguisher(_extinguisherId).then(response => {
     form.value = response.data
+    completeWarningBusinessFields()
     open.value = true
     title.value = "修改灭火器信息"
   })
 }
 
+function handleRefreshProfile() {
+  if (!form.value.extinguisherId) {
+    return
+  }
+  profileRefreshing.value = true
+  refreshExtinguisherProfile(form.value.extinguisherId).then(response => {
+    const result = response.data || {}
+    const refreshed = result.data || result
+    if (refreshed) {
+      form.value = refreshed
+      completeWarningBusinessFields()
+    }
+    if (result.success === false) {
+      proxy.$modal.msgWarning(result.message || "标志明码资料同步失败，已保留现有资料")
+    } else {
+      proxy.$modal.msgSuccess(result.message || "标志明码资料已同步")
+    }
+    getList()
+  }).finally(() => {
+    profileRefreshing.value = false
+  })
+}
+
 /** 提交按钮 */
 function submitForm() {
+  completeWarningBusinessFields()
   proxy.$refs["extinguisherRef"].validate(valid => {
     if (valid) {
       if (form.value.extinguisherId != null) {
@@ -567,6 +709,106 @@ function formatExtinguisherStatus(status) {
   return extinguisherStatusOptions.find(item => item.value === String(status))?.label || status || '未设置'
 }
 
+function formatExtinguisherType(value) {
+  return extinguisherTypeOptions.find(item => item.value === value)?.label || value || '-'
+}
+
+function formatExtinguisherForm(value) {
+  return extinguisherFormOptions.find(item => item.value === value)?.label || value || '-'
+}
+
+function formatTemperatureRange(value) {
+  return value ? `${value.replace('~', '℃~')}℃` : '-'
+}
+
+function getTemperatureRangeOptions(standardCode) {
+  return (temperatureRangesByStandard[standardCode] || []).map(item => ({
+    value: item,
+    label: formatTemperatureRange(item)
+  }))
+}
+
+function completeWarningBusinessFields() {
+  if (!form.value) {
+    return
+  }
+  if (!form.value.extinguisherType) {
+    form.value.extinguisherType = inferExtinguisherType(form.value)
+  }
+  if (!form.value.extinguisherForm) {
+    form.value.extinguisherForm = inferExtinguisherForm(form.value)
+  }
+  form.value.standardCode = resolveStandardCode(form.value.extinguisherForm, form.value.productionDate)
+  form.value.expiryDate = calculateExpiryDate(form.value.productionDate, form.value.extinguisherType)
+  if (
+    form.value.temperatureRange &&
+    !getTemperatureRangeOptions(form.value.standardCode).some(item => item.value === form.value.temperatureRange)
+  ) {
+    form.value.temperatureRange = null
+  }
+}
+
+function inferExtinguisherType(row) {
+  const text = normalizeExtinguisherText(row)
+  if (text.includes('水基')) {
+    return 'water_based'
+  }
+  if (text.includes('干粉')) {
+    return 'dry_powder'
+  }
+  if (text.includes('洁净气体') || text.includes('洁净')) {
+    return 'clean_gas'
+  }
+  if (text.includes('二氧化碳') || text.includes('co2') || text.includes('co₂')) {
+    return 'co2'
+  }
+  return null
+}
+
+function inferExtinguisherForm(row) {
+  const text = normalizeExtinguisherText(row)
+  if (text.includes('推车')) {
+    return 'wheeled'
+  }
+  if (text.includes('手提')) {
+    return 'portable'
+  }
+  return null
+}
+
+function normalizeExtinguisherText(row) {
+  return `${row?.specification || ''} ${row?.productName || ''}`.trim().toLowerCase()
+}
+
+function resolveStandardCode(extinguisherForm, productionDate) {
+  if (!extinguisherForm || !productionDate) {
+    return null
+  }
+  const useNewStandard = productionDate >= '2025-01-01'
+  if (extinguisherForm === 'portable') {
+    return useNewStandard ? 'GB 4351-2023' : 'GB 4351.1-2005'
+  }
+  if (extinguisherForm === 'wheeled') {
+    return useNewStandard ? 'GB 8109-2023' : 'GB 8109-2005'
+  }
+  return null
+}
+
+function calculateExpiryDate(productionDate, extinguisherType) {
+  const serviceLifeYears = extinguisherTypeOptions.find(item => item.value === extinguisherType)?.serviceLifeYears
+  if (!productionDate || !serviceLifeYears) {
+    return null
+  }
+  const [year, month, day] = productionDate.split('-').map(Number)
+  const targetYear = year + serviceLifeYears
+  const lastDayOfTargetMonth = new Date(targetYear, month, 0).getDate()
+  return [
+    targetYear,
+    String(month).padStart(2, '0'),
+    String(Math.min(day, lastDayOfTargetMonth)).padStart(2, '0')
+  ].join('-')
+}
+
 function extinguisherStatusTagType(status) {
   return extinguisherStatusOptions.find(item => item.value === String(status))?.type || 'info'
 }
@@ -585,6 +827,34 @@ function syncStatusTagType(status) {
     synced: 'success',
     failed: 'danger',
     unbound: 'warning'
+  }
+  return typeMap[status] || 'info'
+}
+
+function formatProfileSource(source) {
+  const sourceMap = {
+    sdk: 'SDK原始资料',
+    derived: 'SDK资料 + 推导',
+    manual: '人工兜底',
+    mixed: 'SDK资料/推导 + 人工'
+  }
+  return sourceMap[source] || source || '-'
+}
+
+function formatProfileSyncStatus(status) {
+  const statusMap = {
+    success: '资料完整',
+    failed: '同步失败',
+    incomplete: '资料不完整'
+  }
+  return statusMap[status] || status || '-'
+}
+
+function profileSyncStatusTagType(status) {
+  const typeMap = {
+    success: 'success',
+    failed: 'danger',
+    incomplete: 'warning'
   }
   return typeMap[status] || 'info'
 }
@@ -658,6 +928,13 @@ getDeptTree()
 
 .form-section-title:not(:first-child) {
   margin-top: 20px;
+}
+
+.form-section-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  line-height: 24px;
 }
 
 .extinguisher-form-grid {

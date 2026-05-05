@@ -43,7 +43,7 @@
       </el-col>
 
       <el-col v-if="canViewAlarmCard" :xs="12" :sm="12" :md="6" :lg="6" :xl="6">
-        <div class="stat-card card-alarm" @click="navigateTo('/fire/alarm')">
+        <div class="stat-card card-alarm" @click="navigateTo('/manage/deviceWarning')">
           <div class="stat-icon">
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 2C11 2 10 2.5 10 4C10 4.8 10.4 5.5 11 6V7C11 8 11 9 12 9C13 9 13 8 13 7V6C13.6 5.5 14 4.8 14 4C14 2.5 13 2 12 2Z" fill="currentColor"/>
@@ -52,7 +52,7 @@
             </svg>
           </div>
           <div class="stat-content">
-            <div class="stat-label">待处理报警</div>
+            <div class="stat-label">待确认预警</div>
             <div class="stat-value alarm-value">{{ stats.alarmPending }}</div>
             <div class="stat-trend trend-down">
               <i class="el-icon-warning"></i>
@@ -83,10 +83,10 @@
       </el-col>
     </el-row>
 
-    <!-- 中间区域 - 地图和近期报警 -->
+    <!-- 中间区域 - 地图和近期预警 -->
     <el-row :gutter="20" class="content-row">
       <!-- 左侧 - 腾讯地图 -->
-      <el-col v-if="canViewMapCard" :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+      <el-col v-if="canViewMapCard" :xs="24" :sm="24" :md="18" :lg="18" :xl="18">
         <div class="panel-card" :class="{ 'fullscreen-panel': isMapFullscreen }">
           <div class="panel-header">
             <h3 class="panel-title">
@@ -134,15 +134,15 @@
         </div>
       </el-col>
 
-      <!-- 右侧 - 近期报警 -->
-      <el-col v-if="canViewAlarmCard" :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-        <div class="panel-card">
+      <!-- 右侧 - 近期预警 -->
+      <el-col v-if="canViewAlarmCard" :xs="24" :sm="24" :md="6" :lg="6" :xl="6">
+        <div class="panel-card warning-panel">
           <div class="panel-header">
             <h3 class="panel-title">
               <i class="el-icon-bell"></i>
-              近期报警
+              近期预警
             </h3>
-            <el-link type="primary" @click="navigateTo('/fire/alarm')">查看全部</el-link>
+            <el-link type="primary" @click="navigateTo('/manage/deviceWarning')">查看全部</el-link>
           </div>
           <div class="panel-content">
             <div class="alarm-list">
@@ -154,19 +154,22 @@
               >
                 <div class="alarm-indicator"></div>
                 <div class="alarm-info">
-                  <div class="alarm-title">{{ alarm.title }}</div>
+                  <div class="alarm-main">
+                    <div class="alarm-title" :title="alarm.title">{{ alarm.title }}</div>
+                    <div class="alarm-status" :class="'status-' + alarm.status">
+                      {{ alarm.statusText }}
+                    </div>
+                  </div>
+                  <div class="alarm-dept" :title="alarm.deptName">{{ alarm.deptName }}</div>
                   <div class="alarm-meta">
-                    <span class="alarm-location">{{ alarm.location }}</span>
+                    <span class="alarm-location" :title="alarm.location">{{ alarm.location }}</span>
                     <span class="alarm-time">{{ alarm.time }}</span>
                   </div>
-                </div>
-                <div class="alarm-status" :class="'status-' + alarm.status">
-                  {{ alarm.statusText }}
                 </div>
               </div>
               <div v-if="recentAlarms.length === 0" class="empty-state">
                 <i class="el-icon-success"></i>
-                <p>暂无报警信息</p>
+                <p>暂无预警信息</p>
               </div>
             </div>
           </div>
@@ -179,6 +182,7 @@
 <script>
 import { getContractOverview } from '@/api/system/contract'
 import { getDashboardMapHierarchy } from '@/api/manage/dashboardMap'
+import { getDeviceWarningDashboard } from '@/api/manage/deviceWarning'
 import useUserStore from '@/store/modules/user'
 
 const DASHBOARD_CARD_PERMISSIONS = {
@@ -358,9 +362,6 @@ export default {
         this.setMapLocations([])
       }
 
-      // 其他统计数据暂时使用模拟数据
-      this.stats.alarmPending = this.canViewAlarmCard ? 8 : 0
-      this.stats.alarmPendingHigh = this.canViewAlarmCard ? 2 : 0
       this.stats.maintenanceMonth = this.canViewMaintenanceCard ? 45 : 0
       this.stats.maintenanceComplete = this.canViewMaintenanceCard ? 38 : 0
     },
@@ -837,14 +838,94 @@ export default {
 
     loadRecentAlarms() {
       if (!this.canViewAlarmCard) {
+        this.stats.alarmPending = 0
+        this.stats.alarmPendingHigh = 0
         this.recentAlarms = []
         return
       }
-      this.recentAlarms = [
-        { id: 1, title: '传感器SN20240156压力异常', location: '办公楼3层东侧', time: '5分钟前', level: 3, status: 'pending', statusText: '待处理' },
-        { id: 2, title: '灭火器FE20240089即将过期', location: '仓库区B区', time: '1小时前', level: 2, status: 'pending', statusText: '待处理' },
-        { id: 3, title: '传感器SN20240201低电量预警', location: '生产车间1楼', time: '2小时前', level: 1, status: 'handling', statusText: '处理中' }
-      ]
+      getDeviceWarningDashboard().then(response => {
+        const data = response.data || {}
+        this.stats.alarmPending = Number(data.pendingCount || 0)
+        this.stats.alarmPendingHigh = Number(data.severeCount || 0)
+        this.recentAlarms = (data.recentWarnings || []).map(this.mapDashboardWarning)
+      }).catch(error => {
+        console.error('获取首页预警数据失败：', error)
+        this.stats.alarmPending = 0
+        this.stats.alarmPendingHigh = 0
+        this.recentAlarms = []
+      })
+    },
+
+    mapDashboardWarning(warning) {
+      const typeText = this.getWarningTypeText(warning.warningType)
+      const deviceText = this.getWarningDeviceText(warning)
+      return {
+        id: warning.warningId,
+        title: deviceText ? `${typeText}：${deviceText}` : typeText,
+        deptName: warning.deptName || warning.sourceDeptName || '-',
+        location: warning.firePointName || '-',
+        time: this.formatDashboardTime(warning.lastTriggerTime || warning.triggerTime),
+        level: this.getWarningLevel(warning.warningType),
+        status: warning.warningStatus || 'pending',
+        statusText: this.getWarningStatusText(warning.warningStatus)
+      }
+    },
+
+    getWarningTypeText(type) {
+      const map = {
+        suspected_fire: '疑似火灾',
+        low_battery: '低电量',
+        low_pressure: '压力过低',
+        high_pressure: '压力过高',
+        insufficient_extinguisher: '灭火器数量不足',
+        extinguisher_expired: '灭火器到期',
+        abnormal_temperature: '环境温度异常',
+        gateway_offline: '网关失联'
+      }
+      return map[type] || type || '设备预警'
+    },
+
+    getWarningStatusText(status) {
+      const map = {
+        pending: '待确认',
+        processing: '处理中',
+        resolved: '已解除',
+        false_alarm: '误报'
+      }
+      return map[status] || status || '待确认'
+    },
+
+    getWarningDeviceText(warning) {
+      if (warning.sensorCode) return warning.sensorCode
+      if (warning.extinguisherLabelCode) return warning.extinguisherLabelCode
+      if (warning.gatewayImei) return warning.gatewayImei
+      if (warning.firePointName) return warning.firePointName
+      return ''
+    },
+
+    getWarningLevel(type) {
+      if (type === 'suspected_fire') return 3
+      if (['high_pressure', 'extinguisher_expired', 'abnormal_temperature'].includes(type)) return 2
+      return 1
+    },
+
+    formatDashboardTime(value) {
+      if (!value) return '-'
+      const time = new Date(value).getTime()
+      if (Number.isNaN(time)) return value
+      const diff = Date.now() - time
+      const minute = 60 * 1000
+      const hour = 60 * minute
+      const day = 24 * hour
+      if (diff >= 0 && diff < minute) return '刚刚'
+      if (diff >= 0 && diff < hour) return `${Math.floor(diff / minute)}分钟前`
+      if (diff >= 0 && diff < day) return `${Math.floor(diff / hour)}小时前`
+      const date = new Date(value)
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const dayOfMonth = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      return `${month}-${dayOfMonth} ${hours}:${minutes}`
     },
 
     // ============ 腾讯地图 GL JS API ============
@@ -1295,6 +1376,14 @@ export default {
   }
 }
 
+.warning-panel {
+  .panel-content {
+    height: 520px;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+}
+
 .map-container {
   width: 100%;
   height: 100%;
@@ -1344,12 +1433,16 @@ export default {
 }
 
 .alarm-list {
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 2px;
+
   .alarm-item {
     display: flex;
-    align-items: center;
-    padding: 16px;
+    align-items: flex-start;
+    padding: 12px;
     border-radius: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     background: var(--color-bg-light);
     gap: 12px;
     transition: all 0.3s ease;
@@ -1364,36 +1457,71 @@ export default {
       height: 8px;
       border-radius: 50%;
       flex-shrink: 0;
+      margin-top: 8px;
     }
 
     .alarm-info {
       flex: 1;
       min-width: 0;
 
+      .alarm-main {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+
       .alarm-title {
         font-size: 14px;
         font-weight: 500;
         color: var(--color-text-primary);
-        margin-bottom: 4px;
+        flex: 1;
+        min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
       }
 
+      .alarm-dept {
+        font-size: 12px;
+        color: var(--color-text-regular);
+        margin-bottom: 3px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+
+        &::before {
+          content: '单位：';
+          color: var(--color-text-secondary);
+        }
+      }
+
       .alarm-meta {
         display: flex;
+        align-items: center;
+        justify-content: space-between;
         gap: 12px;
         font-size: 12px;
         color: var(--color-text-secondary);
+        min-width: 0;
 
         .alarm-location {
           display: flex;
           align-items: center;
           gap: 4px;
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
 
           &::before {
             content: '📍';
+            flex-shrink: 0;
           }
+        }
+
+        .alarm-time {
+          flex-shrink: 0;
         }
       }
     }
@@ -1403,13 +1531,15 @@ export default {
       border-radius: 4px;
       font-size: 12px;
       flex-shrink: 0;
+      line-height: 1;
+      white-space: nowrap;
 
       &.status-pending {
         background: var(--color-danger-bg);
         color: var(--color-danger);
       }
 
-      &.status-handling {
+      &.status-processing {
         background: var(--color-warning-bg);
         color: var(--color-warning);
       }
@@ -1502,6 +1632,17 @@ export default {
       padding: 0;
       height: 400px;
     }
+  }
+
+  .warning-panel .panel-content {
+    height: auto;
+    overflow: visible;
+  }
+
+  .alarm-list {
+    height: auto;
+    overflow: visible;
+    padding-right: 0;
   }
   
   .map-legend {
