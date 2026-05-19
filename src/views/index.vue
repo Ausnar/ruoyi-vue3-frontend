@@ -74,7 +74,7 @@
             </svg>
           </div>
           <div class="stat-content">
-            <div class="stat-label">待确认预警</div>
+            <div class="stat-label">待响应预警</div>
             <div class="stat-value alarm-value">{{ stats.alarmPending }}</div>
             <div class="stat-trend trend-down">
               <i class="el-icon-warning"></i>
@@ -951,12 +951,12 @@ export default {
 
     getWarningStatusText(status) {
       const map = {
-        pending: '待确认',
+        pending: '待响应',
         processing: '处理中',
         resolved: '已解除',
         false_alarm: '误报'
       }
-      return map[status] || status || '待确认'
+      return map[status] || status || '待响应'
     },
 
     getWarningDeviceText(warning) {

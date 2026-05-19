@@ -216,7 +216,7 @@ const warningTypeOptions = [
 ]
 
 const warningStatusOptions = [
-  { label: '待确认', value: 'pending', type: 'danger' },
+  { label: '待响应', value: 'pending', type: 'danger' },
   { label: '处理中', value: 'processing', type: 'warning' },
   { label: '已解除', value: 'resolved', type: 'success' },
   { label: '误报', value: 'false_alarm', type: 'info' }
