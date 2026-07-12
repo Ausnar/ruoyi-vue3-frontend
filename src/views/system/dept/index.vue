@@ -20,6 +20,16 @@
                />
             </el-select>
          </el-form-item>
+         <el-form-item label="来源类型" prop="deptSource">
+            <el-select v-model="queryParams.deptSource" placeholder="请选择来源类型" clearable style="width: 160px">
+               <el-option
+                  v-for="item in deptSourceOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+               />
+            </el-select>
+         </el-form-item>
          <el-form-item>
             <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
             <el-button icon="Refresh" @click="resetQuery">重置</el-button>
@@ -56,7 +66,23 @@
          :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
          style="width: 100%;"
       >
-         <el-table-column prop="deptName" label="部门名称" min-width="260"></el-table-column>
+         <el-table-column prop="deptName" label="部门名称" min-width="320">
+            <template #default="scope">
+               <div class="dept-name-cell">
+                  <span class="dept-name-text">{{ scope.row.deptName }}</span>
+                  <el-tag :type="getDeptSourceTagType(scope.row.deptSource)" size="small" effect="plain">
+                     {{ getDeptSourceLabel(scope.row.deptSource) }}
+                  </el-tag>
+               </div>
+            </template>
+         </el-table-column>
+         <el-table-column label="来源" min-width="110" align="center">
+            <template #default="scope">
+               <el-tag :type="getDeptSourceTagType(scope.row.deptSource)" size="small">
+                  {{ getDeptSourceLabel(scope.row.deptSource) }}
+               </el-tag>
+            </template>
+         </el-table-column>
          <el-table-column prop="orderNum" label="排序" min-width="100"></el-table-column>
          <el-table-column prop="status" label="状态" min-width="100">
             <template #default="scope">
@@ -186,12 +212,18 @@ const isExpandAll = ref(true)
 const refreshTable = ref(true)
 const region = ref([])
 const regionDataOptions = ref(regionData)
+const deptSourceOptions = [
+  { label: "SDK镜像", value: "sdk_company" },
+  { label: "手工维护", value: "manual" },
+  { label: "平台根", value: "platform_root" }
+]
 
 const data = reactive({
   form: {},
   queryParams: {
     deptName: undefined,
-    status: undefined
+    status: undefined,
+    deptSource: undefined
   },
   rules: {
     parentId: [{ required: true, message: "上级部门不能为空", trigger: "blur" }],
@@ -203,6 +235,32 @@ const data = reactive({
 })
 
 const { queryParams, form, rules } = toRefs(data)
+
+function getDeptSourceLabel(deptSource) {
+  if (deptSource === "sdk_company") {
+    return "SDK镜像"
+  }
+  if (deptSource === "manual") {
+    return "手工维护"
+  }
+  if (deptSource === "platform_root") {
+    return "平台根"
+  }
+  return "未知"
+}
+
+function getDeptSourceTagType(deptSource) {
+  if (deptSource === "sdk_company") {
+    return "success"
+  }
+  if (deptSource === "manual") {
+    return "warning"
+  }
+  if (deptSource === "platform_root") {
+    return "info"
+  }
+  return "danger"
+}
 
 /** 查询部门列表 */
 function getList() {
@@ -342,3 +400,18 @@ function handleDelete(row) {
 
 getList()
 </script>
+
+<style scoped>
+.dept-name-cell {
+   display: inline-flex;
+   align-items: center;
+   gap: 8px;
+   min-width: 0;
+}
+
+.dept-name-text {
+   overflow: hidden;
+   text-overflow: ellipsis;
+   white-space: nowrap;
+}
+</style>

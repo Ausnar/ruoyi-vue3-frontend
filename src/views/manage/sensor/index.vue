@@ -276,7 +276,7 @@
 
 <script setup name="Sensor">
 import { listSensor, getSensor, delSensor, addSensor, updateSensor } from "@/api/manage/sensor"
-import { deptTreeSelect } from "@/api/system/user"
+import { deviceDeptTreeSelect } from "@/api/manage/deviceDept"
 import router from "@/router"
 import { regionData } from "@/utils/regionData"
 
@@ -322,7 +322,7 @@ const { queryParams, form, rules } = toRefs(data)
 
 /** 查询部门下拉树结构 */
 function getDeptTree(validateDept = false) {
-  deptTreeSelect(buildDeptTreeParams()).then(response => {
+  deviceDeptTreeSelect(buildDeptTreeParams()).then(response => {
     deptOptions.value = response.data || []
     if (validateDept && queryParams.value.deptId && !containsDept(deptOptions.value, queryParams.value.deptId)) {
       queryParams.value.deptId = null

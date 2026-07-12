@@ -414,7 +414,7 @@
 </template>
 <script setup name="Extinguisher">
 import { listExtinguisher, getExtinguisher, delExtinguisher, addExtinguisher, updateExtinguisher, refreshExtinguisherProfile } from "@/api/manage/extinguisher"
-import { deptTreeSelect } from "@/api/system/user"
+import { deviceDeptTreeSelect } from "@/api/manage/deviceDept"
 import { regionData } from "@/utils/regionData"
 
 const { proxy } = getCurrentInstance()
@@ -495,7 +495,7 @@ watch(
 
 /** 查询部门下拉树结构 */
 function getDeptTree(validateDept = false) {
-  deptTreeSelect(buildDeptTreeParams()).then(response => {
+  deviceDeptTreeSelect(buildDeptTreeParams()).then(response => {
     deptOptions.value = response.data || []
     if (validateDept && queryParams.value.deptId && !containsDept(deptOptions.value, queryParams.value.deptId)) {
       queryParams.value.deptId = null

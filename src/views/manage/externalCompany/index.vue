@@ -95,7 +95,12 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="当前映射合同单位" align="center" prop="mappedDeptName" min-width="180" :show-overflow-tooltip="true">
+      <el-table-column label="SDK镜像单位" align="center" prop="sdkDeptName" min-width="180" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <span>{{ scope.row.sdkDeptName || '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="历史映射单位" align="center" prop="mappedDeptName" min-width="160" :show-overflow-tooltip="true">
         <template #default="scope">
           <span>{{ scope.row.mappedDeptName || '-' }}</span>
         </template>
@@ -119,7 +124,7 @@
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['manage:externalCompany:edit']">修改</el-button>
           <el-button link type="primary" icon="Connection" @click="handleOpenDuplicates(scope.row)" v-hasPermi="['manage:externalCompany:merge']">并档</el-button>
-          <el-button link type="primary" icon="Share" @click="handleGoMapping(scope.row)" v-hasPermi="['manage:companyDeptMapping:list']">去映射</el-button>
+          <el-button link type="primary" icon="Share" @click="handleGoMapping(scope.row)" v-hasPermi="['manage:companyDeptMapping:list']">历史映射</el-button>
           <el-button
             link
             :type="scope.row.recordStatus === 'active' ? 'danger' : 'success'"
@@ -176,7 +181,12 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="当前映射合同单位">
+            <el-form-item label="SDK镜像单位">
+              <el-input :model-value="form.sdkDeptName || '-'" disabled />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="历史映射单位">
               <el-input :model-value="form.mappedDeptName || '-'" disabled />
             </el-form-item>
           </el-col>
@@ -204,7 +214,8 @@
       />
       <el-descriptions :column="2" border v-if="currentCompany.companyRecordId">
         <el-descriptions-item label="当前记录">{{ buildDisplayName(currentCompany) }}</el-descriptions-item>
-        <el-descriptions-item label="当前映射合同单位">{{ currentCompany.mappedDeptName || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="SDK镜像单位">{{ currentCompany.sdkDeptName || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="历史映射单位">{{ currentCompany.mappedDeptName || '-' }}</el-descriptions-item>
         <el-descriptions-item label="首次来源">{{ labelOf(currentCompany.firstSourceType, sourceTypeOptions) }}</el-descriptions-item>
         <el-descriptions-item label="最近观测时间">{{ parseTime(currentCompany.lastSeenTime, '{y}-{m}-{d} {h}:{i}:{s}') || '-' }}</el-descriptions-item>
       </el-descriptions>
@@ -222,7 +233,12 @@
         </el-table-column>
         <el-table-column label="匹配类型" prop="duplicateMatchType" width="120" />
         <el-table-column label="匹配说明" prop="duplicateMatchReason" min-width="220" :show-overflow-tooltip="true" />
-        <el-table-column label="当前映射合同单位" prop="mappedDeptName" min-width="170" :show-overflow-tooltip="true">
+        <el-table-column label="SDK镜像单位" prop="sdkDeptName" min-width="170" :show-overflow-tooltip="true">
+          <template #default="scope">
+            <span>{{ scope.row.sdkDeptName || '-' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="历史映射单位" prop="mappedDeptName" min-width="170" :show-overflow-tooltip="true">
           <template #default="scope">
             <span>{{ scope.row.mappedDeptName || '-' }}</span>
           </template>
@@ -348,6 +364,7 @@ function reset() {
     manualConfirmedName: null,
     numberPrefix: null,
     orgPath: null,
+    sdkDeptName: null,
     mappedDeptName: null,
     recordStatus: 'active',
     remark: null

@@ -95,6 +95,13 @@
     <el-table v-loading="loading" :data="contractList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
       <el-table-column label="合同单位" align="center" prop="deptName" min-width="180" :show-overflow-tooltip="true" />
+      <el-table-column label="单位来源" align="center" min-width="100">
+        <template #default="{ row }">
+          <el-tag :type="getDeptSourceTagType(row.deptSource)" size="small">
+            {{ getDeptSourceLabel(row.deptSource) }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="合同号" align="center" prop="contractNo" min-width="140" />
       <el-table-column label="合同性质" align="center" min-width="120">
         <template #default="{ row }">
@@ -161,19 +168,21 @@
       @pagination="getList"
     />
 
-    <el-dialog :title="title" v-model="open" width="640px" append-to-body>
-      <el-form ref="contractRef" :model="form" :rules="rules" label-width="100px">
-        <el-form-item label="合同单位" prop="deptId">
-          <el-tree-select
-            v-model="form.deptId"
-            :data="deptOptions"
-            :props="deptProps"
-            placeholder="请选择合同单位"
-            check-strictly
-            :disabled="form.configId != null"
-            style="width: 100%"
+    <el-dialog
+      :title="title"
+      v-model="open"
+      width="640px"
+      append-to-body
+      :close-on-click-modal="!submitting"
+      :close-on-press-escape="!submitting"
+      :show-close="!submitting"
+    >
+      <el-form ref="contractRef" :model="form" :rules="rules" label-width="100px" :disabled="submitting">
+        <el-form-item label="合同单位">
+          <el-input
+            :model-value="form.configId != null ? form.deptName : '由 SDK 凭证自动识别'"
+            disabled
           />
-          <span v-if="form.configId != null" class="form-tip">合同单位创建后不可修改</span>
         </el-form-item>
         <el-form-item label="合同号" prop="contractNo">
           <el-input v-model="form.contractNo" placeholder="请输入合同号" maxlength="50" />
@@ -186,18 +195,10 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item label="API ID" prop="apiId">
-          <el-input v-model="form.apiId" placeholder="请输入 API ID" maxlength="100">
-            <template #append>
-              <el-button @click="generateApiId">自动生成</el-button>
-            </template>
-          </el-input>
+          <el-input v-model="form.apiId" placeholder="请输入外部平台 API ID" maxlength="100" />
         </el-form-item>
         <el-form-item label="API KEY" prop="apiKey">
-          <el-input v-model="form.apiKey" placeholder="请输入 API KEY" maxlength="100" show-password>
-            <template #append>
-              <el-button @click="generateApiKey">自动生成</el-button>
-            </template>
-          </el-input>
+          <el-input v-model="form.apiKey" placeholder="请输入外部平台 API KEY" maxlength="100" show-password />
         </el-form-item>
         <el-form-item label="到期日期" prop="expireDate">
           <el-date-picker
@@ -219,10 +220,23 @@
           <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入备注" />
         </el-form-item>
       </el-form>
+      <div v-if="submitting" class="contract-submit-status" role="status" aria-live="polite">
+        <el-icon class="is-loading contract-submit-status__icon"><Loading /></el-icon>
+        <div class="contract-submit-status__content">
+          <div class="contract-submit-status__title">
+            {{ form.configId != null ? "正在校验凭证并更新单位镜像" : "正在校验凭证并创建单位镜像" }}
+          </div>
+          <div class="contract-submit-status__detail">
+            {{ submitElapsed < 15 ? "正在等待外部平台响应" : "外部平台响应较慢，系统仍在等待" }}，已等待 {{ submitElapsed }} 秒
+          </div>
+        </div>
+      </div>
       <template #footer>
         <div class="dialog-footer">
-          <el-button type="primary" @click="submitForm">确 定</el-button>
-          <el-button @click="cancel">取 消</el-button>
+          <el-button type="primary" :loading="submitting" @click="submitForm">
+            {{ submitting ? "处理中" : "确 定" }}
+          </el-button>
+          <el-button :disabled="submitting" @click="cancel">取 消</el-button>
         </div>
       </template>
     </el-dialog>
@@ -238,6 +252,8 @@ const { proxy } = getCurrentInstance()
 const contractList = ref([])
 const open = ref(false)
 const loading = ref(true)
+const submitting = ref(false)
+const submitElapsed = ref(0)
 const showSearch = ref(true)
 const ids = ref([])
 const single = ref(true)
@@ -245,6 +261,7 @@ const multiple = ref(true)
 const total = ref(0)
 const title = ref("")
 const deptOptions = ref([])
+let submitTimer = null
 
 const contractTypeFilterOptions = [
   { label: "试用合同", value: "trial" },
@@ -274,9 +291,6 @@ const data = reactive({
     status: null
   },
   rules: {
-    deptId: [
-      { required: true, message: "请选择合同单位", trigger: "change" }
-    ],
     contractNo: [
       { required: true, message: "合同号不能为空", trigger: "blur" }
     ],
@@ -296,6 +310,32 @@ const data = reactive({
 })
 
 const { queryParams, form, rules } = toRefs(data)
+
+function getDeptSourceLabel(deptSource) {
+  if (deptSource === "sdk_company") {
+    return "SDK镜像"
+  }
+  if (deptSource === "manual") {
+    return "手工维护"
+  }
+  if (deptSource === "platform_root") {
+    return "平台根"
+  }
+  return "未知"
+}
+
+function getDeptSourceTagType(deptSource) {
+  if (deptSource === "sdk_company") {
+    return "success"
+  }
+  if (deptSource === "manual") {
+    return "warning"
+  }
+  if (deptSource === "platform_root") {
+    return "info"
+  }
+  return "danger"
+}
 
 function getContractTypeLabel(contractType) {
   if (contractType === "trial") {
@@ -356,30 +396,34 @@ function toggleKeyVisibility(row) {
   row.showKey = !row.showKey
 }
 
-function generateApiId() {
-  const timestamp = Date.now()
-  const random = Math.random().toString(36).substring(2, 8).toUpperCase()
-  form.value.apiId = `API-${timestamp}-${random}`
-}
-
-function generateApiKey() {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-  let key = "KEY-"
-  for (let i = 0; i < 32; i += 1) {
-    key += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  form.value.apiKey = key
-}
-
 function cancel() {
+  if (submitting.value) {
+    return
+  }
   open.value = false
   reset()
+}
+
+function startSubmitTimer() {
+  submitElapsed.value = 0
+  clearSubmitTimer()
+  submitTimer = window.setInterval(() => {
+    submitElapsed.value += 1
+  }, 1000)
+}
+
+function clearSubmitTimer() {
+  if (submitTimer != null) {
+    window.clearInterval(submitTimer)
+    submitTimer = null
+  }
 }
 
 function reset() {
   form.value = {
     configId: null,
     deptId: null,
+    deptName: null,
     contractNo: null,
     contractType: null,
     apiId: null,
@@ -428,14 +472,24 @@ function handleUpdate(row) {
 
 function submitForm() {
   proxy.$refs.contractRef.validate(valid => {
-    if (!valid) {
+    if (!valid || submitting.value) {
       return
     }
-    const request = form.value.configId != null ? updateContract(form.value) : addContract(form.value)
-    request.then(() => {
-      proxy.$modal.msgSuccess(form.value.configId != null ? "修改成功" : "新增成功")
+    const isEdit = form.value.configId != null
+    submitting.value = true
+    startSubmitTimer()
+    const request = isEdit ? updateContract(form.value) : addContract(form.value)
+    request.then(response => {
+      const deptName = response.data?.deptName
+      const successMessage = deptName
+        ? `${isEdit ? "修改成功" : "新增成功"}，已识别合同单位：${deptName}`
+        : (isEdit ? "修改成功" : "新增成功")
+      proxy.$modal.msgSuccess(successMessage)
       open.value = false
       getList()
+    }).finally(() => {
+      clearSubmitTimer()
+      submitting.value = false
     })
   })
 }
@@ -458,13 +512,52 @@ function handleExport() {
 
 getDeptList()
 getList()
+
+onBeforeUnmount(() => {
+  clearSubmitTimer()
+})
 </script>
 
 <style scoped>
-.form-tip {
-  color: #909399;
+.contract-submit-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  margin: 2px 0 0 100px;
+  padding: 10px 14px;
+  color: #303133;
+  background: #f4f8ff;
+  border-left: 3px solid #409eff;
+  border-radius: 4px;
+}
+
+.contract-submit-status__icon {
+  flex: 0 0 auto;
+  font-size: 20px;
+  color: #409eff;
+}
+
+.contract-submit-status__content {
+  min-width: 0;
+}
+
+.contract-submit-status__title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.contract-submit-status__detail {
+  margin-top: 2px;
+  color: #606266;
   font-size: 12px;
-  display: block;
-  margin-top: 5px;
+  line-height: 18px;
+}
+
+@media (max-width: 768px) {
+  .contract-submit-status {
+    margin-left: 0;
+  }
 }
 </style>

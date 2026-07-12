@@ -180,7 +180,7 @@
 
 <script setup name="Gateway">
 import { listGateway, getGateway } from "@/api/manage/gateway"
-import { deptTreeSelect } from "@/api/system/user"
+import { deviceDeptTreeSelect } from "@/api/manage/deviceDept"
 import { regionData } from "@/utils/regionData"
 
 const { proxy } = getCurrentInstance()
@@ -216,7 +216,7 @@ const data = reactive({
 const { queryParams, form } = toRefs(data)
 
 function getDeptTree(validateDept = false) {
-  deptTreeSelect(buildDeptTreeParams()).then(response => {
+  deviceDeptTreeSelect(buildDeptTreeParams()).then(response => {
     deptOptions.value = response.data || []
     if (validateDept && queryParams.value.deptId && !containsDept(deptOptions.value, queryParams.value.deptId)) {
       queryParams.value.deptId = null

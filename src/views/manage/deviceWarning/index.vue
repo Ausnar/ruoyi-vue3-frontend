@@ -190,7 +190,7 @@
 
 <script setup name="DeviceWarning">
 import { listDeviceWarning, getDeviceWarning } from "@/api/manage/deviceWarning"
-import { deptTreeSelect } from "@/api/system/user"
+import { deviceDeptTreeSelect } from "@/api/manage/deviceDept"
 import { regionData } from "@/utils/regionData"
 
 const { proxy } = getCurrentInstance()
@@ -248,7 +248,7 @@ const data = reactive({
 const { queryParams } = toRefs(data)
 
 function getDeptTree(validateDept = false) {
-  deptTreeSelect(buildDeptTreeParams()).then(response => {
+  deviceDeptTreeSelect(buildDeptTreeParams()).then(response => {
     deptOptions.value = response.data || []
     if (validateDept && queryParams.value.deptId && !containsDept(deptOptions.value, queryParams.value.deptId)) {
       queryParams.value.deptId = null

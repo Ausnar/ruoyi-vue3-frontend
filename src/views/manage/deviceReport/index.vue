@@ -184,7 +184,7 @@
 
 <script setup name="DeviceReport">
 import { previewDeviceReport } from "@/api/manage/deviceReport"
-import { deptTreeSelect } from "@/api/system/user"
+import { deviceDeptTreeSelect } from "@/api/manage/deviceDept"
 
 const { proxy } = getCurrentInstance()
 
@@ -204,7 +204,7 @@ const queryParams = reactive({
 const overview = computed(() => preview.value?.overview || {})
 
 function getDeptTree() {
-  deptTreeSelect().then(response => {
+  deviceDeptTreeSelect().then(response => {
     deptOptions.value = response.data || []
   })
 }
