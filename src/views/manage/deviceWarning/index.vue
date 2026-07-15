@@ -1,5 +1,13 @@
 <template>
   <div class="app-container device-warning-page">
+    <div class="warning-view-switch">
+      <el-radio-group v-model="queryParams.alarmState" @change="handleAlarmStateChange">
+        <el-radio-button v-for="item in alarmStateOptions" :key="item.value" :label="item.value">
+          {{ item.label }}
+        </el-radio-button>
+      </el-radio-group>
+    </div>
+
     <el-form class="warning-query-form" :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="96px">
       <el-form-item class="query-date" label="最近触发时间">
         <el-date-picker
@@ -41,8 +49,8 @@
           <el-option v-for="item in warningTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
-      <el-form-item class="query-status" label="预警状态" prop="warningStatus">
-        <el-select class="query-control" v-model="queryParams.warningStatus" placeholder="请选择预警状态" clearable>
+      <el-form-item class="query-status" label="响应状态" prop="warningStatus">
+        <el-select class="query-control" v-model="queryParams.warningStatus" placeholder="请选择响应状态" clearable>
           <el-option v-for="item in warningStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
@@ -80,7 +88,12 @@
           <el-tag :type="warningTypeTagType(scope.row.warningType)">{{ formatWarningType(scope.row.warningType) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="状态" align="center" prop="warningStatus" width="100">
+      <el-table-column label="设备状态" align="center" prop="alarmState" width="100">
+        <template #default="scope">
+          <el-tag :type="alarmStateTagType(scope.row.alarmState)">{{ formatAlarmState(scope.row.alarmState) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="响应状态" align="center" prop="warningStatus" width="100">
         <template #default="scope">
           <el-tag :type="warningStatusTagType(scope.row.warningStatus)">{{ formatWarningStatus(scope.row.warningStatus) }}</el-tag>
         </template>
@@ -110,6 +123,11 @@
           <span>{{ parseTime(scope.row.lastTriggerTime) || '-' }}</span>
         </template>
       </el-table-column>
+      <el-table-column v-if="queryParams.alarmState !== 'active'" label="恢复时间" align="center" prop="recoveryTime" width="170">
+        <template #default="scope">
+          <span>{{ parseTime(scope.row.recoveryTime) || '-' }}</span>
+        </template>
+      </el-table-column>
       <el-table-column label="样本数" align="center" prop="sampleCount" width="80" />
       <el-table-column label="证据摘要" align="left" prop="evidenceSummary" min-width="280" :show-overflow-tooltip="true">
         <template #default="scope">
@@ -137,7 +155,10 @@
         <el-descriptions-item label="预警类型">
           <el-tag :type="warningTypeTagType(detailForm.warningType)">{{ formatWarningType(detailForm.warningType) }}</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="预警状态">
+        <el-descriptions-item label="设备状态">
+          <el-tag :type="alarmStateTagType(detailForm.alarmState)">{{ formatAlarmState(detailForm.alarmState) }}</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="响应状态">
           <el-tag :type="warningStatusTagType(detailForm.warningStatus)">{{ formatWarningStatus(detailForm.warningStatus) }}</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="对象类型">{{ formatObjectType(detailForm.objectType) }}</el-descriptions-item>
@@ -167,7 +188,16 @@
         <el-descriptions-item label="证据摘要" :span="2">{{ detailForm.evidenceSummary || '-' }}</el-descriptions-item>
       </el-descriptions>
 
-      <div class="detail-section-title">闭环预留</div>
+      <template v-if="detailForm.alarmState === 'recovered'">
+        <div class="detail-section-title">恢复依据</div>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="恢复时间">{{ parseTime(detailForm.recoveryTime) || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="恢复来源">{{ formatRecoverySource(detailForm.recoverySource) }}</el-descriptions-item>
+          <el-descriptions-item label="恢复证据" :span="2">{{ detailForm.recoveryEvidence || '-' }}</el-descriptions-item>
+        </el-descriptions>
+      </template>
+
+      <div class="detail-section-title">平台响应预留</div>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="确认人">{{ detailForm.confirmBy || '-' }}</el-descriptions-item>
         <el-descriptions-item label="确认时间">{{ parseTime(detailForm.confirmTime) || '-' }}</el-descriptions-item>
@@ -210,7 +240,7 @@ const warningTypeOptions = [
   { label: '低压', value: 'low_pressure', type: 'warning' },
   { label: '高压', value: 'high_pressure', type: 'danger' },
   { label: '数量不足', value: 'insufficient_extinguisher', type: 'warning' },
-  { label: '灭火器到期', value: 'extinguisher_expired', type: 'danger' },
+  { label: '灭火器临近报废', value: 'extinguisher_scrap_due', type: 'danger' },
   { label: '环境温度异常', value: 'abnormal_temperature', type: 'warning' },
   { label: '网关失联', value: 'gateway_offline', type: 'info' }
 ]
@@ -220,6 +250,12 @@ const warningStatusOptions = [
   { label: '处理中', value: 'processing', type: 'warning' },
   { label: '已解除', value: 'resolved', type: 'success' },
   { label: '误报', value: 'false_alarm', type: 'info' }
+]
+
+const alarmStateOptions = [
+  { label: '当前预警', value: 'active', tagLabel: '异常中', type: 'danger' },
+  { label: '已恢复', value: 'recovered', tagLabel: '已恢复', type: 'success' },
+  { label: '全部记录', value: 'all', tagLabel: '全部', type: 'info' }
 ]
 
 const objectTypeOptions = [
@@ -234,6 +270,7 @@ const data = reactive({
     pageNum: 1,
     pageSize: 10,
     warningType: null,
+    alarmState: 'active',
     warningStatus: null,
     firePointName: null,
     keyword: null,
@@ -323,10 +360,17 @@ function findOption(options, value) {
 }
 
 function formatWarningType(value) {
+  if (value === 'extinguisher_expired') return '灭火器到期（历史）'
   return findOption(warningTypeOptions, value)?.label || value || '-'
 }
 
+function handleAlarmStateChange() {
+  queryParams.value.pageNum = 1
+  getList()
+}
+
 function warningTypeTagType(value) {
+  if (value === 'extinguisher_expired') return 'danger'
   return findOption(warningTypeOptions, value)?.type || 'info'
 }
 
@@ -336,6 +380,19 @@ function formatWarningStatus(value) {
 
 function warningStatusTagType(value) {
   return findOption(warningStatusOptions, value)?.type || 'info'
+}
+
+function formatAlarmState(value) {
+  return findOption(alarmStateOptions, value)?.tagLabel || (value === 'recovered' ? '已恢复' : '异常中')
+}
+
+function alarmStateTagType(value) {
+  return findOption(alarmStateOptions, value)?.type || (value === 'recovered' ? 'success' : 'danger')
+}
+
+function formatRecoverySource(value) {
+  if (value === 'sdk_data') return 'SDK 最新有效数据'
+  return value || '-'
 }
 
 function formatObjectType(value) {
@@ -375,6 +432,10 @@ getList()
 </script>
 
 <style scoped>
+.warning-view-switch {
+  margin-bottom: 16px;
+}
+
 .warning-query-form {
   display: flex;
   flex-wrap: wrap;

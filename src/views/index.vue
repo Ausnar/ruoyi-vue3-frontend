@@ -942,7 +942,8 @@ export default {
         low_pressure: '压力过低',
         high_pressure: '压力过高',
         insufficient_extinguisher: '灭火器数量不足',
-        extinguisher_expired: '灭火器到期',
+        extinguisher_scrap_due: '灭火器临近报废',
+        extinguisher_expired: '灭火器到期（历史）',
         abnormal_temperature: '环境温度异常',
         gateway_offline: '网关失联'
       }
@@ -969,7 +970,7 @@ export default {
 
     getWarningLevel(type) {
       if (type === 'suspected_fire') return 3
-      if (['high_pressure', 'extinguisher_expired', 'abnormal_temperature'].includes(type)) return 2
+      if (['high_pressure', 'extinguisher_scrap_due', 'extinguisher_expired', 'abnormal_temperature'].includes(type)) return 2
       return 1
     },
 
