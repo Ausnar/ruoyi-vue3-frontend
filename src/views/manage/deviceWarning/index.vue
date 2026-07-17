@@ -49,8 +49,8 @@
           <el-option v-for="item in warningTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
-      <el-form-item class="query-status" label="响应状态" prop="warningStatus">
-        <el-select class="query-control" v-model="queryParams.warningStatus" placeholder="请选择响应状态" clearable>
+      <el-form-item class="query-status" label="工作状态" prop="warningStatus">
+        <el-select class="query-control" v-model="queryParams.warningStatus" placeholder="请选择工作状态" clearable>
           <el-option v-for="item in warningStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
       </el-form-item>
@@ -93,7 +93,7 @@
           <el-tag :type="alarmStateTagType(scope.row.alarmState)">{{ formatAlarmState(scope.row.alarmState) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="响应状态" align="center" prop="warningStatus" width="100">
+      <el-table-column label="工作状态" align="center" prop="warningStatus" width="100">
         <template #default="scope">
           <el-tag :type="warningStatusTagType(scope.row.warningStatus)">{{ formatWarningStatus(scope.row.warningStatus) }}</el-tag>
         </template>
@@ -158,7 +158,7 @@
         <el-descriptions-item label="设备状态">
           <el-tag :type="alarmStateTagType(detailForm.alarmState)">{{ formatAlarmState(detailForm.alarmState) }}</el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="响应状态">
+        <el-descriptions-item label="工作状态">
           <el-tag :type="warningStatusTagType(detailForm.warningStatus)">{{ formatWarningStatus(detailForm.warningStatus) }}</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="对象类型">{{ formatObjectType(detailForm.objectType) }}</el-descriptions-item>
@@ -197,7 +197,7 @@
         </el-descriptions>
       </template>
 
-      <div class="detail-section-title">平台响应预留</div>
+      <div class="detail-section-title">平台处置预留</div>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="确认人">{{ detailForm.confirmBy || '-' }}</el-descriptions-item>
         <el-descriptions-item label="确认时间">{{ parseTime(detailForm.confirmTime) || '-' }}</el-descriptions-item>
@@ -246,7 +246,8 @@ const warningTypeOptions = [
 ]
 
 const warningStatusOptions = [
-  { label: '待响应', value: 'pending', type: 'danger' },
+  { label: '待协调', value: 'pending', type: 'danger' },
+  { label: '已派发', value: 'dispatched', type: 'warning' },
   { label: '处理中', value: 'processing', type: 'warning' },
   { label: '已解除', value: 'resolved', type: 'success' },
   { label: '误报', value: 'false_alarm', type: 'info' }
