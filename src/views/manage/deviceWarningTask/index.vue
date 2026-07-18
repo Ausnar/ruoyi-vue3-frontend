@@ -189,6 +189,15 @@
             {{ record.operatorNickName || record.operatorUserName || '-' }}，任务转为“{{ formatTaskStatus(record.nextTaskStatus) }}”
           </div>
           <div class="treatment-record-description">{{ record.actionDescription }}</div>
+          <div v-if="record.attachments?.length" class="treatment-attachments">
+            <div v-for="attachment in record.attachments" :key="attachment.attachmentId" class="treatment-attachment-item">
+              <el-button link type="primary" icon="View" @click="openAttachment(attachment)">
+                {{ attachment.originalName }}
+              </el-button>
+              <span class="attachment-size">{{ formatFileSize(attachment.fileSize) }}</span>
+              <el-button link icon="Download" title="下载附件" @click="downloadAttachment(attachment)" />
+            </div>
+          </div>
         </el-timeline-item>
       </el-timeline>
       <el-empty v-else description="暂无人工处置记录" :image-size="64" />
@@ -238,6 +247,22 @@
             placeholder="请记录检查结果、已执行操作及仍需完成的事项"
           />
         </el-form-item>
+        <el-form-item label="照片/附件">
+          <el-upload
+            v-model:file-list="treatmentFiles"
+            :auto-upload="false"
+            :limit="5"
+            multiple
+            accept=".jpg,.jpeg,.png,.pdf"
+            :on-change="handleTreatmentFileChange"
+            :on-exceed="handleTreatmentFileExceed"
+          >
+            <el-button icon="Upload">选择文件</el-button>
+            <template #tip>
+              <div class="el-upload__tip">最多5个文件，单个不超过10MB，支持JPG、PNG和PDF</div>
+            </template>
+          </el-upload>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button type="primary" :loading="treatmentLoading" @click="submitTreatment">保存记录</el-button>
@@ -279,6 +304,7 @@ import {
   listDeviceWarningTask,
   listTaskCandidates,
   reassignDeviceWarningTask,
+  getDeviceWarningTreatmentAttachment,
   startDeviceWarningTask,
   submitDeviceWarningTreatment
 } from '@/api/manage/deviceWarningTask'
@@ -298,6 +324,7 @@ const total = ref(0)
 const detailOpen = ref(false)
 const assignOpen = ref(false)
 const treatmentOpen = ref(false)
+const treatmentFiles = ref([])
 const detailForm = ref({})
 
 const warningTypeOptions = [
@@ -457,6 +484,7 @@ function submitAssign() {
 }
 
 function handleTreatment(row) {
+  treatmentFiles.value = []
   treatmentForm.value = {
     taskId: row.taskId,
     warningType: row.warningType,
@@ -479,14 +507,64 @@ function submitTreatment() {
       actionChannel: treatmentForm.value.actionChannel,
       nextTaskStatus: treatmentForm.value.nextTaskStatus,
       actionDescription: treatmentForm.value.actionDescription
-    }).then(() => {
+    }, treatmentFiles.value.map(file => file.raw).filter(Boolean)).then(() => {
       proxy.$modal.msgSuccess('处置记录已保存，后续将以 SDK 数据验证设备状态')
       treatmentOpen.value = false
+      treatmentFiles.value = []
       getList()
     }).finally(() => {
       treatmentLoading.value = false
     })
   })
+}
+
+function handleTreatmentFileChange(uploadFile, uploadFiles) {
+  const name = uploadFile.name || ''
+  const extension = name.includes('.') ? name.split('.').pop().toLowerCase() : ''
+  const allowed = ['jpg', 'jpeg', 'png', 'pdf'].includes(extension)
+  const withinLimit = (uploadFile.size || 0) <= 10 * 1024 * 1024
+  if (!allowed || !withinLimit) {
+    treatmentFiles.value = uploadFiles.filter(file => file.uid !== uploadFile.uid)
+    proxy.$modal.msgWarning(!allowed ? '仅支持JPG、PNG和PDF附件' : '单个附件不能超过10MB')
+  }
+}
+
+function handleTreatmentFileExceed() {
+  proxy.$modal.msgWarning('每条处置记录最多上传5个附件')
+}
+
+function openAttachment(attachment) {
+  getDeviceWarningTreatmentAttachment(attachment.attachmentId).then(blob => {
+    const url = URL.createObjectURL(blob)
+    const opened = window.open(url, '_blank')
+    if (opened) {
+      opened.opener = null
+    }
+    if (!opened) {
+      proxy.$modal.msgWarning('浏览器阻止了新窗口，请允许弹出窗口后重试')
+    }
+    window.setTimeout(() => URL.revokeObjectURL(url), 60000)
+  })
+}
+
+function downloadAttachment(attachment) {
+  getDeviceWarningTreatmentAttachment(attachment.attachmentId).then(blob => {
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = attachment.originalName || '处置附件'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  })
+}
+
+function formatFileSize(value) {
+  const size = Number(value || 0)
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / 1024 / 1024).toFixed(1)} MB`
 }
 
 function canStart(row) {
@@ -638,6 +716,37 @@ getList()
   color: #606266;
   line-height: 1.6;
   white-space: pre-wrap;
+}
+
+.treatment-attachments {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid #ebeef5;
+  background: #fafafa;
+}
+
+.treatment-attachment-item {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.treatment-attachment-item :deep(.el-button:first-child) {
+  min-width: 0;
+  max-width: 420px;
+}
+
+.treatment-attachment-item :deep(.el-button:first-child > span) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-size {
+  margin-left: 8px;
+  color: #909399;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .next-status-group {

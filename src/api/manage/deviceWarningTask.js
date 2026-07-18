@@ -44,10 +44,26 @@ export function startDeviceWarningTask(taskId) {
   })
 }
 
-export function submitDeviceWarningTreatment(taskId, data) {
+export function submitDeviceWarningTreatment(taskId, data, files = []) {
+  const formData = new FormData()
+  Object.entries(data).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, value)
+    }
+  })
+  files.forEach(file => formData.append('files', file))
   return request({
-    url: `/manage/device-warning-task/${taskId}/treatment`,
+    url: `/manage/device-warning-task/${taskId}/treatment-with-attachments`,
     method: 'post',
-    data
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+export function getDeviceWarningTreatmentAttachment(attachmentId) {
+  return request({
+    url: `/manage/device-warning-task/attachment/${attachmentId}`,
+    method: 'get',
+    responseType: 'blob'
   })
 }
